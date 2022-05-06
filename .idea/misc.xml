@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="DesignSurface">
+    <option name="filePathToZoomLevelMap">
+      <map>
+        <entry key="app/src/main/res/drawable/ic_baseline_bluetooth_audio_24.xml" value="0.19" />
+        <entry key="app/src/main/res/drawable/ic_baseline_chat_24.xml" value="0.19" />
+        <entry key="app/src/main/res/drawable/ic_baseline_close_24.xml" value="0.19" />
+        <entry key="app/src/main/res/drawable/ic_baseline_flip_camera_android_24.xml" value="0.19" />
+        <entry key="app/src/main/res/drawable/ic_baseline_mic_24.xml" value="0.19" />
+        <entry key="app/src/main/res/drawable/ic_baseline_person_24.xml" value="0.19" />
+        <entry key="app/src/main/res/drawable/ic_baseline_volume_up_24.xml" value="0.19" />
+        <entry key="app/src/main/res/drawable/ic_typewritter.xml" value="0.19" />
+        <entry key="app/src/main/res/layout/activity_chat.xml" value="0.18177083333333333" />
+        <entry key="app/src/main/res/layout/activity_create_or_join.xml" value="0.18177083333333333" />
+        <entry key="app/src/main/res/layout/activity_join.xml" value="0.18177083333333333" />
+        <entry key="app/src/main/res/layout/activity_main.xml" value="0.333786231884058" />
+        <entry key="app/src/main/res/layout/item_message_list.xml" value="0.18177083333333333" />
+        <entry key="app/src/main/res/layout/item_remote_peer.xml" value="0.18177083333333333" />
+        <entry key="app/src/main/res/menu/menu_participant.xml" value="0.18177083333333333" />
+      </map>
+    </option>
+  </component>
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_11" default="true" project-jdk-name="Android Studio default JDK" project-jdk-type="JavaSDK">
+    <output url="file://$PROJECT_DIR$/build/classes" />
+  </component>
+  <component name="ProjectType">
+    <option name="id" value="Android" />
+  </component>
+</project>
