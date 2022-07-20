@@ -46,7 +46,6 @@ import java.util.*
 
 class MainActivity() : AppCompatActivity() {
 
-
     private var svrShare: SurfaceViewRenderer? = null
     private var btnMic: FloatingActionButton? = null
     private var btnWebcam: FloatingActionButton? = null
@@ -91,7 +90,7 @@ class MainActivity() : AppCompatActivity() {
         // create a new meeting instance
         meeting = VideoSDK.initMeeting(
             this@MainActivity, meetingId, participantName,
-            micEnabled, webcamEnabled
+            micEnabled, webcamEnabled,null
         )
 
         //
