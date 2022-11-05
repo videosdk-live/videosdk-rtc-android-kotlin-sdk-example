@@ -344,21 +344,21 @@ If you want to learn more about, read the complete documentation of [Android Vid
 ## Project Structure
 We have 3 packages :
 
-1. [`OneToOneCall`](app/src/main/java/live/videosdk/rtc/android/java/OneToOneCall) - OneToOneCall package includes all classes/files related to OneToOne meeting.
-2. [`GroupCall`](app/src/main/java/live/videosdk/rtc/android/java/GroupCall) - GroupCall package includes all classes/files related to Group meeting.
-3. [`Common`](app/src/main/java/live/videosdk/rtc/android/java/Common) - Common package inclues all the classes/files that are used in both meeting type.
+1. [`OneToOneCall`](app/src/main/java/live/videosdk/rtc/android/kotlin/OneToOneCall) - OneToOneCall package includes all classes/files related to OneToOne meeting.
+2. [`GroupCall`](app/src/main/java/live/videosdk/rtc/android/kotlin/GroupCall) - GroupCall package includes all classes/files related to Group meeting.
+3. [`Common`](app/src/main/java/live/videosdk/rtc/android/kotlin/Common) - Common package inclues all the classes/files that are used in both meeting type.
 
 <br/>
 
-### [Common package](app/src/main/java/live/videosdk/rtc/android/java/Common)
+### [Common package](app/src/main/java/live/videosdk/rtc/android/kotlin/Common)
 
 **1. Create or Join Meeting**
-- [`NetworkUtils.kt`](app/src/main/java/live/videosdk/rtc/android/java/Common/Utils/NetworkUtils.kt) - This class is used to call the api to generate token,create and validate the meeting.
-- [`CreateOrJoinActivity.kt`](app/src/main/java/live/videosdk/rtc/android/java/Common/Activity/CreateOrJoinActivity.kt) and [`activity_create_or_join.xml`](app/src/main/res/layout/activity_create_or_join.xml)
+- [`NetworkUtils.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/Common/Utils/NetworkUtils.kt) - This class is used to call the api to generate token,create and validate the meeting.
+- [`CreateOrJoinActivity.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/Common/Activity/CreateOrJoinActivity.kt) and [`activity_create_or_join.xml`](app/src/main/res/layout/activity_create_or_join.xml)
   - This activity is used to ask permissions to the partcipant,and to initiate webcam and mic status.
   - `CreateOrJoinFragment`,`CreateMeetingFragment`,`JoinMeetingFragment` will be bound to this activity.
 
-- [`CreateOrJoinFragment.kt`](app/src/main/java/live/videosdk/rtc/android/java/Common/fragment/CreateOrJoinFragment.kt) and [`fragment_createorjoin.xml`](app/src/main/res/layout/fragment_createorjoin.xml) - This fragment will include
+- [`CreateOrJoinFragment.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/Common/Fragment/CreateOrJoinFragment.kt) and [`fragment_create_or_join.xml`](app/src/main/res/layout/fragment_create_or_join.xml) - This fragment will include
 
   - `Create Meeting Button` - This button will navigate to `CreateMeetingFragment`.
   - `Join Meeting Button` - This button will navigate to `JoinMeetingFragment`.
@@ -366,14 +366,14 @@ We have 3 packages :
   <img width="300" src="assets/create_join_fragment.gif"/>
   </p>
 
-- [`CreateMeetingFragment.kt`](app/src/main/java/live/videosdk/rtc/android/java/Common/fragment/CreateMeetingFragment.kt) and [`fragment_create_meeting.xml`](app/src/main/res/layout/fragment_create_meeting.xml) -  This fragement will include
+- [`CreateMeetingFragment.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/Common/Fragment/CreateMeetingFragment.kt) and [`fragment_create_meeting.xml`](app/src/main/res/layout/fragment_create_meeting.xml) -  This fragement will include
   - `Dropdown to select meeting type` - This dropdown will give choice for meeting type.
   - `EditText for ParticipantName` - This edit text will contain name of the participant.
   - `Create Meeting Button` - This button will call api for create a new meeting and navigate to `OneToOneCallActivity` or `GroupCallActivity` according to user choice.
   <p align="center">
   <img width="300" src="assets/create_meeting_fragement.gif"/>
   </p>
-- [`JoinMeetingFragment.kt`](app/src/main/java/live/videosdk/rtc/android/java/Common/fragment/JoinMeetingFragment.kt) and [`fragment_join_meeting.xml`](app/src/main/res/layout/fragment_join_meeting.xml) - This fragement will include
+- [`JoinMeetingFragment.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/Common/Fragment/JoinMeetingFragment.kt) and [`fragment_join_meeting.xml`](app/src/main/res/layout/fragment_join_meeting.xml) - This fragement will include
   - `Dropdown to select meeting type` - This dropdown will give choice for meeting type.
   - `EditText for ParticipantName` - This edit text will contain name of the participant.
   - `EditText for MeetingId` - This edit text will contain the meeting Id that you want to join.
@@ -385,7 +385,7 @@ We have 3 packages :
 
 **2. ParticipantList**
 
-- [`ParticipantListAdapter.kt`](app/src/main/java/live/videosdk/rtc/android/java/Common/Adapter/ParticipantListAdapter.kt),[`layout_participants_list_view.xml`](app/src/main/res/layout/layout_participants_list_view.xml) and [`item_participant_list_layout.xml`](app/src/main/res/layout/item_participant_list_layout.xml) files used to show ParticipantList.
+- [`ParticipantListAdapter.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/Common/Adapter/ParticipantListAdapter.kt),[`layout_participants_list_view.xml`](app/src/main/res/layout/layout_participants_list_view.xml) and [`item_participant_list_layout.xml`](app/src/main/res/layout/item_participant_list_layout.xml) files used to show ParticipantList.
   <p align="center">
   <img width="300" src="assets/participant_list.gif"/>
   </p>
@@ -393,33 +393,33 @@ We have 3 packages :
 **3. Dialogs**
 
 - **MoreOptions**:
-  - [`MoreOptionsListAdapter.kt`](app/src/main/java/live/videosdk/rtc/android/java/Common/Adapter/MoreOptionsListAdapter.kt) class,[`ListItem.kt`](app/src/main/java/live/videosdk/rtc/android/java/Common/Modal/ListItem.kt) class and [`more_options_list_layout.xml`](app/src/main/res/layout/more_options_list_layout.xml) files used to show `MoreOptions` dialog.
+  - [`MoreOptionsListAdapter.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/Common/Adapter/MoreOptionsListAdapter.kt) class,[`ListItem.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/Common/Modal/ListItem.kt) class and [`more_options_list_layout.xml`](app/src/main/res/layout/more_options_list_layout.xml) files used to show `MoreOptions` dialog.
   <p align="center">
   <img width="300" src="assets/more _options.gif"/>
   </p>
 - **AudioDeviceList**:
-  - [`AudioDeviceListAdapter.kt`](app/src/main/java/live/videosdk/rtc/android/java/Common/Adapter/AudioDeviceListAdapter.kt) class,[`ListItem.kt`](app/src/main/java/live/videosdk/rtc/android/java/Common/Modal/ListItem.kt) class and [`audio_device_list_layout.xml`](app/src/main/res/layout/audio_device_list_layout.xml) files used to show `AudioDeviceList` dialog.
+  - [`AudioDeviceListAdapter.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/Common/Adapter/AudioDeviceListAdapter.kt) class,[`ListItem.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/Common/Modal/ListItem.kt) class and [`audio_device_list_layout.xml`](app/src/main/res/layout/audio_device_list_layout.xml) files used to show `AudioDeviceList` dialog.
   <p align="center">
   <img width="300" src="assets/mic_output_device.gif"/>
   </p>
 - **LeaveOrEndDialog**:
-  - [`LeaveOptionListAdapter.kt`](app/src/main/java/live/videosdk/rtc/android/java/Common/Adapter/LeaveOptionListAdapter.kt) class,[`ListItem.kt`](app/src/main/java/live/videosdk/rtc/android/java/Common/Modal/ListItem.kt) class and [`leave_options_list_layout.xml`](app/src/main/res/layout/leave_options_list_layout.xml) files used to show `LeaveOrEndDialog`.
+  - [`LeaveOptionListAdapter.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/Common/Adapter/LeaveOptionListAdapter.kt) class,[`ListItem.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/Common/Modal/ListItem.kt) class and [`leave_options_list_layout.xml`](app/src/main/res/layout/leave_options_list_layout.xml) files used to show `LeaveOrEndDialog`.
   <p align="center">
   <img width="300" src="assets/leave_meeting.gif"/>
   </p>
 
 <br/>
 
-### [OneToOneCall package](app/src/main/java/live/videosdk/rtc/android/java/OneToOneCall)
+### [OneToOneCall package](app/src/main/java/live/videosdk/rtc/android/kotlin/OneToOneCall)
 
-- [`OneToOneCallActivity.kt`](app/src/main/java/live/videosdk/rtc/android/java/OneToOneCall/OneToOneCallActivity.kt) activity is main activity for One-to-One meeting.
+- [`OneToOneCallActivity.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/OneToOneCall/OneToOneCallActivity.kt) activity is main activity for One-to-One meeting.
 
 <br/>
 
-### [GroupCall package](app/src/main/java/live/videosdk/rtc/android/java/GroupCall)
+### [GroupCall package](app/src/main/java/live/videosdk/rtc/android/kotlin/GroupCall)
 
-- [`GroupCallActivity.kt`](app/src/main/java/live/videosdk/rtc/android/java/GroupCall/Activity/GroupCallActivity.kt) activity is main activity for Group meeting.
-- [`ParticipantViewFragment.kt`](app/src/main/java/live/videosdk/rtc/android/java/GroupCall/Fragement/ParticipantViewFragment.kt), [`ParticipantViewAdapter.kt`](app/src/main/java/live/videosdk/rtc/android/java/GroupCall/Adapter/ParticipantViewAdapter.kt),[`ParticipantChangeListener.kt`](app/src/main/java/live/videosdk/rtc/android/java/GroupCall/Listener/ParticipantChangeListener.kt) and [`ParticipantState.kt`](app/src/main/java/live/videosdk/rtc/android/java/GroupCall/Utils/ParticipantState.kt) is used to show participants in Grid.
+- [`GroupCallActivity.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/GroupCall/Activity/GroupCallActivity.kt) activity is main activity for Group meeting.
+- [`ParticipantViewFragment.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/GroupCall/Fragment/ParticipantViewFragment.kt), [`ParticipantViewAdapter.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/GroupCall/Adapter/ParticipantViewAdapter.kt),[`ParticipantChangeListener.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/GroupCall/Listener/ParticipantChangeListener.kt) and [`ParticipantState.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/GroupCall/Utils/ParticipantState.kt) is used to show participants in Grid.
 
 <br/>
 
