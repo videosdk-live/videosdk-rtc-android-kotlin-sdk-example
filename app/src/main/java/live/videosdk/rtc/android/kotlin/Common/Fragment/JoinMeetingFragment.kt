@@ -75,12 +75,12 @@ class JoinMeetingFragment : Fragment() {
             } else {
                 val networkUtils = NetworkUtils(context)
                 if (networkUtils.isNetworkAvailable()) {
-                    networkUtils.getToken(object : ResponseListener {
+                    networkUtils.getToken(object : ResponseListener<String> {
                         override fun onResponse(token: String?) {
                             networkUtils.joinMeeting(
                                 token,
                                 etMeetingId.text.toString().trim { it <= ' ' },
-                                object : ResponseListener {
+                                object : ResponseListener<String> {
                                     override fun onResponse(meetingId: String?) {
                                         var intent: Intent? = null
                                         if (!TextUtils.isEmpty(selectedMeetingType[0])) {
@@ -119,11 +119,9 @@ class JoinMeetingFragment : Fragment() {
                                         }
                                     }
 
-                                    override fun onMeetingTimeChanged(meetingTime: Int) {}
                                 })
                         }
 
-                        override fun onMeetingTimeChanged(meetingTime: Int) {}
                     })
                 } else {
                     val snackbar = Snackbar.make(

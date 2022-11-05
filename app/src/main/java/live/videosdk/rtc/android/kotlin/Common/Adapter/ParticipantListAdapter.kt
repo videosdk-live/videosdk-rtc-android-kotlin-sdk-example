@@ -67,15 +67,14 @@ class ParticipantListAdapter(
         }
         holder.participantNameFirstLetter.text =
             participants[position].displayName.subSequence(0, 1)
-        for ((_, stream) in participant.streams) {
-            if (stream.kind.equals("video", ignoreCase = true)) {
-                holder.camStatus.setImageResource(R.drawable.ic_webcam_on_style)
-                break
-            }
-            if (stream.kind.equals("audio", ignoreCase = true)) {
-                holder.micStatus.setImageResource(R.drawable.ic_mic_on_style)
-            }
+
+        if (getVideoStreamStatus(participant)) {
+            holder.camStatus.setImageResource(R.drawable.ic_webcam_on_style)
         }
+        if (getAudioStreamStatus(participant)) {
+            holder.micStatus.setImageResource(R.drawable.ic_mic_on_style)
+        }
+
         participant.addEventListener(object : ParticipantEventListener() {
             override fun onStreamEnabled(stream: Stream) {
                 if (stream.kind.equals("video", ignoreCase = true)) {
@@ -117,19 +116,6 @@ class ParticipantListAdapter(
                 break
             }
         }
-        participant.addEventListener(object : ParticipantEventListener() {
-            override fun onStreamEnabled(stream: Stream) {
-                if (stream.kind.equals("video", ignoreCase = true)) {
-                    webCamOn[0] = true
-                }
-            }
-
-            override fun onStreamDisabled(stream: Stream) {
-                if (stream.kind.equals("video", ignoreCase = true)) {
-                    webCamOn[0] = false
-                }
-            }
-        })
         return webCamOn[0]
     }
 
@@ -141,19 +127,6 @@ class ParticipantListAdapter(
                 break
             }
         }
-        participant.addEventListener(object : ParticipantEventListener() {
-            override fun onStreamEnabled(stream: Stream) {
-                if (stream.kind.equals("audio", ignoreCase = true)) {
-                    micOn[0] = true
-                }
-            }
-
-            override fun onStreamDisabled(stream: Stream) {
-                if (stream.kind.equals("audio", ignoreCase = true)) {
-                    micOn[0] = false
-                }
-            }
-        })
         return micOn[0]
     }
 

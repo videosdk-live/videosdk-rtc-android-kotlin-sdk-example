@@ -1,6 +1,5 @@
 package live.videosdk.rtc.android.kotlin.Common.Listener
 
-interface ResponseListener {
-    fun onResponse(meetingId: String?)
-    fun onMeetingTimeChanged(meetingTime: Int)
+interface ResponseListener<T> {
+    fun onResponse(response: T?)
 }

@@ -1,14 +1,13 @@
-package live.videosdk.rtc.android.kotlin.OneToOneCall
+package live.videosdk.rtc.android.kotlin.GroupCall.Activity
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.Activity
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.DialogInterface
-import android.content.Intent
+import android.content.*
+import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
@@ -19,20 +18,20 @@ import android.text.TextWatcher
 import android.text.style.ImageSpan
 import android.util.DisplayMetrics
 import android.view.*
-import android.view.View.OnTouchListener
-import android.view.ViewGroup.MarginLayoutParams
+import android.view.View.*
 import android.view.animation.TranslateAnimation
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.appcompat.widget.Toolbar
-import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.DrawableCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.bottomappbar.BottomAppBar
 import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetBehavior.BottomSheetCallback
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -47,23 +46,24 @@ import live.videosdk.rtc.android.kotlin.Common.Modal.ListItem
 import live.videosdk.rtc.android.kotlin.Common.RobotoFont
 import live.videosdk.rtc.android.kotlin.Common.Utils.HelperClass
 import live.videosdk.rtc.android.kotlin.Common.Utils.NetworkUtils
+import live.videosdk.rtc.android.kotlin.GroupCall.Adapter.ParticipantViewAdapter
+import live.videosdk.rtc.android.kotlin.GroupCall.Utils.ParticipantState
 import live.videosdk.rtc.android.kotlin.R
-import live.videosdk.rtc.android.lib.AppRTCAudioManager
+import live.videosdk.rtc.android.lib.AppRTCAudioManager.AudioDevice
 import live.videosdk.rtc.android.lib.JsonUtils
 import live.videosdk.rtc.android.lib.PeerConnectionUtils
 import live.videosdk.rtc.android.listeners.*
 import live.videosdk.rtc.android.model.PubSubPublishOptions
 import org.json.JSONObject
+import org.webrtc.RendererCommon
 import org.webrtc.SurfaceViewRenderer
 import org.webrtc.VideoTrack
-import pl.droidsonroids.gif.GifImageView
 import java.util.*
 import kotlin.math.roundToInt
 
-class OneToOneCallActivity : AppCompatActivity() {
+
+class GroupCallActivity : AppCompatActivity() {
     private var meeting: Meeting? = null
-    private var svrLocal: SurfaceViewRenderer? = null
-    private var svrParticipant: SurfaceViewRenderer? = null
     private var btnWebcam: FloatingActionButton? = null
     private var btnMic: ImageButton? = null
     private var btnAudioSelection: ImageButton? = null
@@ -71,58 +71,49 @@ class OneToOneCallActivity : AppCompatActivity() {
     private var btnLeave: FloatingActionButton? = null
     private var btnChat: FloatingActionButton? = null
     private var btnMore: FloatingActionButton? = null
-    private var localCard: CardView? = null
-    private var participantCard: CardView? = null
-    private var micLayout: LinearLayout? = null
-    var participants: ArrayList<Participant>? = null
-    private var img_localActiveSpeaker: GifImageView? = null
-    private var img_participantActiveSpeaker: GifImageView? = null
-    private var txtLocalParticipantName: TextView? = null
-    private var txtParticipantName: TextView? = null
-    private var tvName: TextView? = null
-    private var tvLocalParticipantName: TextView? = null
-    private var participantName: String? = null
 
-    private var participantTrack: VideoTrack? = null
+    private var micLayout: LinearLayout? = null
+    private var participants: ArrayList<Participant>? = null
+    private var svrShare: SurfaceViewRenderer? = null
+    private var shareLayout: FrameLayout? = null
 
     private var micEnabled = true
     private var webcamEnabled = true
     private var recording = false
     private var localScreenShare = false
-    private var fullScreen = false
     private var token: String? = null
-    var clickCount = 0
-    var startTime: Long = 0
-    val MAX_DURATION = 500
     private var recordingStatusSnackbar: Snackbar? = null
 
 
     private val CAPTURE_PERMISSION_REQUEST_CODE = 1
 
-    private val timer = Timer()
     private var screenshareEnabled = false
-    private var localTrack: VideoTrack? = null
-    private var screenshareTrack: VideoTrack? = null
     private var bottomSheetDialog: BottomSheetDialog? = null
     private var selectedAudioDeviceName: String? = null
 
     private var etmessage: EditText? = null
-
     private var messageAdapter: MessageAdapter? = null
     private var pubSubMessageListener: PubSubMessageListener? = null
+    private var viewPager2: ViewPager2? = null
+    private var viewAdapter: ParticipantViewAdapter? = null
     private var meetingSeconds = 0
     private var txtMeetingTime: TextView? = null
-    private var screenShareParticipantNameSnackbar: Snackbar? = null
+    private var btnStopScreenShare: Button? = null
 
+    var clickCount = 0
+    var startTime: Long = 0
+    val MAX_DURATION = 500
+    var fullScreen = false
+    var onTouchListener: OnTouchListener? = null
+    private var screenShareParticipantNameSnackbar: Snackbar? = null
     private var runnable: Runnable? = null
     val handler = Handler()
-
     private var chatListener: PubSubMessageListener? = null
+    private var raiseHandListener: PubSubMessageListener? = null
 
-    @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_one_to_one_call)
+        setContentView(R.layout.activity_group_call)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         //
@@ -136,23 +127,15 @@ class OneToOneCallActivity : AppCompatActivity() {
         btnMore = findViewById(R.id.btnMore)
         btnSwitchCameraMode = findViewById(R.id.btnSwitchCameraMode)
         micLayout = findViewById(R.id.micLayout)
-        localCard = findViewById(R.id.LocalCard)
-        participantCard = findViewById(R.id.ParticipantCard)
-        txtLocalParticipantName = findViewById(R.id.txtLocalParticipantName)
-        txtParticipantName = findViewById(R.id.txtParticipantName)
-        tvName = findViewById(R.id.tvName)
-        tvLocalParticipantName = findViewById(R.id.tvLocalParticipantName)
-        svrLocal = findViewById(R.id.svrLocal)
-        svrLocal!!.init(PeerConnectionUtils.getEglContext(), null)
-        svrLocal!!.setMirror(true)
-        svrParticipant = findViewById(R.id.svrParticipant)
-        svrParticipant!!.init(PeerConnectionUtils.getEglContext(), null)
         btnMic = findViewById(R.id.btnMic)
         btnWebcam = findViewById(R.id.btnWebcam)
         btnAudioSelection = findViewById(R.id.btnAudioSelection)
         txtMeetingTime = findViewById(R.id.txtMeetingTime)
-        img_localActiveSpeaker = findViewById(R.id.img_localActiveSpeaker)
-        img_participantActiveSpeaker = findViewById(R.id.img_participantActiveSpeaker)
+        btnStopScreenShare = findViewById(R.id.btnStopScreenShare)
+        viewPager2 = findViewById(R.id.view_pager_video_grid)
+        shareLayout = findViewById(R.id.shareLayout)
+        svrShare = findViewById(R.id.svrShare)
+        svrShare!!.init(PeerConnectionUtils.getEglContext(), null)
         token = intent.getStringExtra("token")
         val meetingId = intent.getStringExtra("meetingId")
         micEnabled = intent.getBooleanExtra("micEnabled", true)
@@ -161,20 +144,19 @@ class OneToOneCallActivity : AppCompatActivity() {
         if (localParticipantName == null) {
             localParticipantName = "John Doe"
         }
-        txtLocalParticipantName!!.text = localParticipantName.substring(0, 1)
-        tvLocalParticipantName!!.text = "You"
-        //
-        val textMeetingId = findViewById<TextView>(R.id.txtMeetingId)
-        textMeetingId.text = meetingId
 
         // pass the token generated from api server
         VideoSDK.config(token)
 
         // create a new meeting instance
         meeting = VideoSDK.initMeeting(
-            this@OneToOneCallActivity, meetingId, localParticipantName,
-            false, false, null, null
+            this@GroupCallActivity, meetingId, localParticipantName,
+            micEnabled, webcamEnabled, null, null
         )
+
+        //
+        val textMeetingId = findViewById<TextView>(R.id.txtMeetingId)
+        textMeetingId.text = meetingId
         meeting!!.addEventListener(meetingEventListener)
 
         //show Progress
@@ -192,21 +174,19 @@ class OneToOneCallActivity : AppCompatActivity() {
             )
         }
         btnAudioSelection!!.setOnClickListener { showAudioInputDialog() }
-
-        findViewById<Button>(R.id.btnStopScreenShare).setOnClickListener(View.OnClickListener {
+        btnStopScreenShare!!.setOnClickListener {
             if (localScreenShare) {
                 meeting!!.disableScreenShare()
             }
-        })
-
+        }
         recordingStatusSnackbar = Snackbar.make(
             findViewById(R.id.mainLayout), "Recording will be started in few moments",
             Snackbar.LENGTH_INDEFINITE
         )
         HelperClass.setSnackBarStyle(recordingStatusSnackbar!!.view, 0)
         recordingStatusSnackbar!!.isGestureInsetBottomIgnored = true
-        (findViewById<View>(R.id.participants_frameLayout) as FrameLayout).setOnTouchListener(object :
-            OnTouchListener {
+        viewAdapter = ParticipantViewAdapter(this@GroupCallActivity, meeting!!)
+        onTouchListener = object : OnTouchListener {
             override fun onTouch(v: View, event: MotionEvent): Boolean {
                 when (event.action and MotionEvent.ACTION_MASK) {
                     MotionEvent.ACTION_UP -> {
@@ -217,11 +197,11 @@ class OneToOneCallActivity : AppCompatActivity() {
                             val duration = System.currentTimeMillis() - startTime
                             if (duration <= MAX_DURATION) {
                                 if (fullScreen) {
-                                    toolbar.visibility = View.VISIBLE
+                                    toolbar.visibility = VISIBLE
                                     run {
                                         var i = 0
                                         while (i < toolbar.childCount) {
-                                            toolbar.getChildAt(i).visibility = View.VISIBLE
+                                            toolbar.getChildAt(i).visibility = VISIBLE
                                             i++
                                         }
                                     }
@@ -229,9 +209,18 @@ class OneToOneCallActivity : AppCompatActivity() {
                                         ViewGroup.LayoutParams.WRAP_CONTENT,
                                         ViewGroup.LayoutParams.WRAP_CONTENT
                                     )
-                                    params.setMargins(30, 10, 0, 0)
+                                    params.setMargins(22, 10, 0, 0)
                                     findViewById<View>(R.id.meetingLayout).layoutParams =
                                         params
+                                    shareLayout!!.layoutParams = LinearLayout.LayoutParams(
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                        dpToPx(420, this@GroupCallActivity)
+                                    )
+                                    (findViewById<View>(R.id.localScreenShareView) as LinearLayout).layoutParams =
+                                        LinearLayout.LayoutParams(
+                                            ViewGroup.LayoutParams.MATCH_PARENT,
+                                            dpToPx(420, this@GroupCallActivity)
+                                        )
                                     val toolbarAnimation = TranslateAnimation(
                                         0F,
                                         0F,
@@ -242,10 +231,10 @@ class OneToOneCallActivity : AppCompatActivity() {
                                     toolbarAnimation.fillAfter = true
                                     toolbar.startAnimation(toolbarAnimation)
                                     val bottomAppBar = findViewById<BottomAppBar>(R.id.bottomAppbar)
-                                    bottomAppBar.visibility = View.VISIBLE
+                                    bottomAppBar.visibility = VISIBLE
                                     var i = 0
                                     while (i < bottomAppBar.childCount) {
-                                        bottomAppBar.getChildAt(i).visibility = View.VISIBLE
+                                        bottomAppBar.getChildAt(i).visibility = VISIBLE
                                         i++
                                     }
                                     val animate = TranslateAnimation(
@@ -259,14 +248,23 @@ class OneToOneCallActivity : AppCompatActivity() {
                                     animate.fillAfter = true
                                     findViewById<View>(R.id.bottomAppbar).startAnimation(animate)
                                 } else {
-                                    toolbar.visibility = View.GONE
+                                    toolbar.visibility = GONE
                                     run {
                                         var i = 0
                                         while (i < toolbar.childCount) {
-                                            toolbar.getChildAt(i).visibility = View.GONE
+                                            toolbar.getChildAt(i).visibility = GONE
                                             i++
                                         }
                                     }
+                                    shareLayout!!.layoutParams = LinearLayout.LayoutParams(
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                        dpToPx(500, this@GroupCallActivity)
+                                    )
+                                    (findViewById<View>(R.id.localScreenShareView) as LinearLayout).layoutParams =
+                                        LinearLayout.LayoutParams(
+                                            ViewGroup.LayoutParams.MATCH_PARENT,
+                                            dpToPx(500, this@GroupCallActivity)
+                                        )
                                     val toolbarAnimation = TranslateAnimation(
                                         0F,
                                         0F,
@@ -277,10 +275,10 @@ class OneToOneCallActivity : AppCompatActivity() {
                                     toolbarAnimation.fillAfter = true
                                     toolbar.startAnimation(toolbarAnimation)
                                     val bottomAppBar = findViewById<BottomAppBar>(R.id.bottomAppbar)
-                                    bottomAppBar.visibility = View.GONE
+                                    bottomAppBar.visibility = GONE
                                     var i = 0
                                     while (i < bottomAppBar.childCount) {
-                                        bottomAppBar.getChildAt(i).visibility = View.GONE
+                                        bottomAppBar.getChildAt(i).visibility = GONE
                                         i++
                                     }
                                     val animate = TranslateAnimation(
@@ -300,31 +298,42 @@ class OneToOneCallActivity : AppCompatActivity() {
                                 clickCount = 1
                                 startTime = System.currentTimeMillis()
                             }
+
                         }
                     }
                 }
                 return true
             }
-        })
+        }
+        findViewById<View>(R.id.participants_Layout).setOnTouchListener(onTouchListener)
     }
 
-    private fun toggleMicIcon(micEnabled: Boolean) {
+    fun getTouchListener(): OnTouchListener? {
+        return onTouchListener
+    }
+
+    fun dpToPx(dp: Int, context: Context): Int {
+        val density = context.resources.displayMetrics.density
+        return (dp.toFloat() * density).roundToInt()
+    }
+
+    private fun toggleMicIcon() {
         if (micEnabled) {
             btnMic!!.setImageResource(R.drawable.ic_mic_on)
             btnAudioSelection!!.setImageResource(R.drawable.ic_baseline_arrow_drop_down_24)
             micLayout!!.background =
-                ContextCompat.getDrawable(this@OneToOneCallActivity, R.drawable.layout_selected)
+                ContextCompat.getDrawable(this@GroupCallActivity, R.drawable.layout_selected)
         } else {
             btnMic!!.setImageResource(R.drawable.ic_mic_off_24)
             btnAudioSelection!!.setImageResource(R.drawable.ic_baseline_arrow_drop_down)
             micLayout!!.setBackgroundColor(Color.WHITE)
             micLayout!!.background =
-                ContextCompat.getDrawable(this@OneToOneCallActivity, R.drawable.layout_nonselected)
+                ContextCompat.getDrawable(this@GroupCallActivity, R.drawable.layout_nonselected)
         }
     }
 
     @SuppressLint("ResourceType")
-    private fun toggleWebcamIcon(webcamEnabled: Boolean) {
+    private fun toggleWebcamIcon() {
         if (webcamEnabled) {
             btnWebcam!!.setImageResource(R.drawable.ic_video_camera)
             btnWebcam!!.setColorFilter(Color.WHITE)
@@ -344,99 +353,114 @@ class OneToOneCallActivity : AppCompatActivity() {
         }
     }
 
+
     private val meetingEventListener: MeetingEventListener = object : MeetingEventListener() {
         override fun onMeetingJoined() {
             if (meeting != null) {
                 //hide progress when meetingJoined
                 HelperClass.hideProgress(window.decorView.rootView)
-                localCard!!.visibility = View.VISIBLE
-
-                // if more than 2 participant join than leave the meeting
-                if (meeting!!.participants.size <= 1) {
-                    toggleMicIcon(micEnabled)
-                    micEnabled = !micEnabled
-                    webcamEnabled = !webcamEnabled
-                    toggleMic()
-                    toggleWebCam()
-
-                    // Local participant listeners
-                    setLocalListeners()
-                    NetworkUtils(this@OneToOneCallActivity).fetchMeetingTime(
-                        meeting!!.meetingId,
-                        token,
-                        object : ResponseListener<Int> {
-                            override fun onResponse(meetingTime: Int?) {
-                                meetingSeconds = meetingTime!!
-                                showMeetingTime()
-                            }
-                        })
-
-
-                    chatListener =
-                        PubSubMessageListener { pubSubMessage ->
-                            if (pubSubMessage.senderId != meeting!!.localParticipant.id) {
-                                val parentLayout = findViewById<View>(android.R.id.content)
-                                val snackbar = Snackbar.make(
-                                    parentLayout, (pubSubMessage.senderName + " says: " +
-                                            pubSubMessage.message), Snackbar.LENGTH_SHORT
-                                )
-                                    .setDuration(2000)
-                                val snackbarView = snackbar.view
-                                HelperClass.setSnackBarStyle(snackbarView, 0)
-                                snackbar.view.setOnClickListener { snackbar.dismiss() }
-                                snackbar.show()
-                            }
+                toggleMicIcon()
+                toggleWebcamIcon()
+                setLocalListeners()
+                NetworkUtils(this@GroupCallActivity).fetchMeetingTime(
+                    meeting!!.meetingId,
+                    token,
+                    object : ResponseListener<Int> {
+                        override fun onResponse(meetingTime: Int?) {
+                            meetingSeconds = meetingTime!!
+                            showMeetingTime()
+                        }
+                    })
+                viewPager2!!.offscreenPageLimit = 1
+                viewPager2!!.adapter = viewAdapter
+                raiseHandListener =
+                    PubSubMessageListener { pubSubMessage ->
+                        val parentLayout = findViewById<View>(android.R.id.content)
+                        var snackbar: Snackbar
+                        if ((pubSubMessage.senderId == meeting!!.localParticipant.id)) {
+                            snackbar = Snackbar.make(
+                                parentLayout,
+                                "You raised hand",
+                                Snackbar.LENGTH_SHORT
+                            )
+                        } else {
+                            snackbar = Snackbar.make(
+                                parentLayout,
+                                pubSubMessage.senderName + " raised hand  ",
+                                Snackbar.LENGTH_LONG
+                            )
                         }
 
-                    // notify user of any new messages
-                    meeting!!.pubSub.subscribe("CHAT", chatListener)
+                        val snackbarLayout = snackbar.view
+                        val snackbarTextId = com.google.android.material.R.id.snackbar_text
+                        val textView = snackbarLayout.findViewById<View>(snackbarTextId) as TextView
 
-                    //terminate meeting in 10 minutes
-                    Handler().postDelayed({
-                        if (!isDestroyed) {
-                            val alertDialog = MaterialAlertDialogBuilder(
-                                this@OneToOneCallActivity,
-                                R.style.AlertDialogCustom
-                            ).create()
-                            alertDialog.setCanceledOnTouchOutside(false)
-                            val inflater = this@OneToOneCallActivity.layoutInflater
-                            val dialogView: View =
-                                inflater.inflate(R.layout.alert_dialog_layout, null)
-                            alertDialog.setView(dialogView)
-                            val title = dialogView.findViewById<View>(R.id.title) as TextView
-                            title.text = "Meeting Left"
-                            val message = dialogView.findViewById<View>(R.id.message) as TextView
-                            message.text = "Demo app limits meeting to 10 Minutes"
-                            val positiveButton = dialogView.findViewById<Button>(R.id.positiveBtn)
-                            positiveButton.text = "Ok"
-                            positiveButton.setOnClickListener {
-                                if (!isDestroyed) {
-                                    unSubscribeTopics()
-                                    meeting!!.leave()
-                                }
-                                alertDialog.dismiss()
-                            }
-                            val negativeButton = dialogView.findViewById<Button>(R.id.negativeBtn)
-                            negativeButton.visibility = View.GONE
-                            alertDialog.show()
-                        }
-                    }, 600000)
+                        val drawable = resources.getDrawable(R.drawable.ic_raise_hand)
+                        drawable.setBounds(0, 0, 50, 65)
+                        textView.setCompoundDrawablesRelative(drawable, null, null, null)
+                        textView.compoundDrawablePadding = 15
+                        HelperClass.setSnackBarStyle(snackbar.view, 0)
+                        snackbar.isGestureInsetBottomIgnored = true
+                        snackbar.view.setOnClickListener { snackbar.dismiss() }
+                        snackbar.show()
+                    }
 
-                } else {
-                    val progressLayout: View = LayoutInflater.from(applicationContext)
-                        .inflate(R.layout.progress_layout, findViewById(R.id.layout_progress))
-                    if (!(this@OneToOneCallActivity as Activity).isFinishing) HelperClass.checkParticipantSize(
-                        window.decorView.rootView, progressLayout
-                    )
-                    progressLayout.findViewById<View>(R.id.leaveBtn)
-                        .setOnClickListener { meeting!!.leave() }
+                // notify user for raise hand
+                meeting!!.pubSub.subscribe("RAISE_HAND", raiseHandListener)
+                chatListener = PubSubMessageListener { pubSubMessage ->
+                    if (pubSubMessage.senderId != meeting!!.localParticipant.id) {
+                        val parentLayout = findViewById<View>(android.R.id.content)
+                        val snackbar = Snackbar.make(
+                            parentLayout, (pubSubMessage.senderName + " says: " +
+                                    pubSubMessage.message), Snackbar.LENGTH_SHORT
+                        )
+                            .setDuration(2000)
+                        val snackbarView = snackbar.view
+                        HelperClass.setSnackBarStyle(snackbarView, 0)
+                        snackbar.view.setOnClickListener { snackbar.dismiss() }
+                        snackbar.show()
+                    }
                 }
+                // notify user of any new messages
+                meeting!!.pubSub.subscribe("CHAT", chatListener)
+
+                //terminate meeting in 10 minutes
+                Handler().postDelayed({
+                    if (!isDestroyed) {
+                        val alertDialog = MaterialAlertDialogBuilder(
+                            this@GroupCallActivity,
+                            R.style.AlertDialogCustom
+                        ).create()
+                        alertDialog.setCanceledOnTouchOutside(false)
+                        val inflater = this@GroupCallActivity.layoutInflater
+                        val dialogView = inflater.inflate(R.layout.alert_dialog_layout, null)
+                        alertDialog.setView(dialogView)
+                        val title = dialogView.findViewById<View>(R.id.title) as TextView
+                        title.text = "Meeting Left"
+                        val message = dialogView.findViewById<View>(R.id.message) as TextView
+                        message.text = "Demo app limits meeting to 10 Minutes"
+                        val positiveButton = dialogView.findViewById<Button>(R.id.positiveBtn)
+                        positiveButton.text = "Ok"
+                        positiveButton.setOnClickListener {
+                            if (!isDestroyed) {
+                                ParticipantState.destroy()
+                                unSubscribeTopics()
+                                meeting!!.leave()
+                            }
+                            alertDialog.dismiss()
+                        }
+                        val negativeButton = dialogView.findViewById<Button>(R.id.negativeBtn)
+                        negativeButton.visibility = GONE
+                        alertDialog.show()
+                    }
+                }, 600000)
             }
         }
 
         override fun onMeetingLeft() {
+            handler.removeCallbacks(runnable!!)
             if (!isDestroyed) {
-                val intents = Intent(this@OneToOneCallActivity, CreateOrJoinActivity::class.java)
+                val intents = Intent(this@GroupCallActivity, CreateOrJoinActivity::class.java)
                 intents.addFlags(
                     Intent.FLAG_ACTIVITY_NEW_TASK
                             or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -446,43 +470,6 @@ class OneToOneCallActivity : AppCompatActivity() {
             }
         }
 
-        override fun onParticipantJoined(participant: Participant) {
-            if (meeting!!.participants.size < 2) {
-                showParticipantCard()
-                txtParticipantName!!.text = participant.displayName.substring(0, 1)
-                participantName = participant.displayName
-                tvName!!.text = participantName
-                Toast.makeText(
-                    this@OneToOneCallActivity, participant.displayName + " joined",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-            participant.addEventListener(participantEventListener)
-        }
-
-        override fun onParticipantLeft(participant: Participant) {
-            if (meeting!!.participants.size < 1) {
-                hideParticipantCard()
-                if (screenshareTrack != null) {
-                    if (participantTrack != null) participantTrack!!.removeSink(svrLocal)
-                    svrLocal!!.clearImage()
-                    svrLocal!!.visibility = View.GONE
-                    showParticipantCard()
-                    if (localTrack != null) {
-                        localTrack!!.addSink(svrLocal)
-                        svrLocal!!.visibility = View.VISIBLE
-                    }
-                    screenshareTrack!!.addSink(svrParticipant)
-                    svrParticipant!!.visibility = View.VISIBLE
-                }
-                Toast.makeText(
-                    this@OneToOneCallActivity, participant.displayName + " left",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-            participant.removeAllListeners()
-        }
-
         override fun onPresenterChanged(participantId: String?) {
             updatePresenter(participantId)
         }
@@ -490,24 +477,24 @@ class OneToOneCallActivity : AppCompatActivity() {
         override fun onRecordingStarted() {
             recording = true
             recordingStatusSnackbar!!.dismiss()
-            (findViewById<View>(R.id.recordingLottie)).visibility = View.VISIBLE
+            (findViewById<View>(R.id.recordingLottie)).visibility = VISIBLE
             Toast.makeText(
-                this@OneToOneCallActivity, "Recording started",
+                this@GroupCallActivity, "Recording started",
                 Toast.LENGTH_SHORT
             ).show()
         }
 
         override fun onRecordingStopped() {
             recording = false
-            (findViewById<View>(R.id.recordingLottie)).visibility = View.GONE
+            (findViewById<View>(R.id.recordingLottie)).visibility = GONE
             Toast.makeText(
-                this@OneToOneCallActivity, "Recording stopped",
+                this@GroupCallActivity, "Recording stopped",
                 Toast.LENGTH_SHORT
             ).show()
         }
 
         override fun onExternalCallStarted() {
-            Toast.makeText(this@OneToOneCallActivity, "onExternalCallStarted", Toast.LENGTH_SHORT)
+            Toast.makeText(this@GroupCallActivity, "onExternalCallStarted", Toast.LENGTH_SHORT)
                 .show()
         }
 
@@ -530,21 +517,7 @@ class OneToOneCallActivity : AppCompatActivity() {
             }
         }
 
-        override fun onSpeakerChanged(participantId: String) {
-            if (!HelperClass().isNullOrEmpty(participantId)) {
-                if ((participantId == meeting!!.localParticipant.id)) {
-                    img_localActiveSpeaker!!.visibility = View.VISIBLE
-                    img_participantActiveSpeaker!!.visibility = View.GONE
-                } else {
-                    img_participantActiveSpeaker!!.visibility = View.VISIBLE
-                    img_localActiveSpeaker!!.visibility = View.GONE
-                }
-            } else {
-                img_participantActiveSpeaker!!.visibility = View.GONE
-                img_localActiveSpeaker!!.visibility = View.GONE
-            }
-        }
-
+        override fun onSpeakerChanged(participantId: String?) {}
         override fun onMeetingStateChanged(state: String) {
             if (state === "FAILED") {
                 val parentLayout = findViewById<View>(android.R.id.content)
@@ -552,15 +525,12 @@ class OneToOneCallActivity : AppCompatActivity() {
                 builderTextLeft.append("   Call disconnected. Reconnecting...")
                 builderTextLeft.setSpan(
                     ImageSpan(
-                        this@OneToOneCallActivity,
+                        this@GroupCallActivity,
                         R.drawable.ic_call_disconnected
                     ), 0, 1, 0
                 )
                 val snackbar = Snackbar.make(parentLayout, builderTextLeft, Snackbar.LENGTH_LONG)
-                HelperClass.setSnackBarStyle(
-                    snackbar.view,
-                    resources.getColor(R.color.md_red_400)
-                )
+                HelperClass.setSnackBarStyle(snackbar.view, resources.getColor(R.color.md_red_400))
                 snackbar.view.setOnClickListener { snackbar.dismiss() }
                 snackbar.show()
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -578,51 +548,46 @@ class OneToOneCallActivity : AppCompatActivity() {
         }
     }
 
-    private fun showParticipantCard() {
-        localCard!!.layoutParams =
-            FrameLayout.LayoutParams(
-                getWindowWidth() / 4,
-                getWindowHeight() / 5,
-                Gravity.RIGHT or Gravity.BOTTOM
-            )
-        val cardViewMarginParams = localCard!!.layoutParams as MarginLayoutParams
-        cardViewMarginParams.setMargins(30, 0, 60, 40)
-        localCard!!.requestLayout()
-        txtLocalParticipantName!!.layoutParams = FrameLayout.LayoutParams(120, 120, Gravity.CENTER)
-        txtLocalParticipantName!!.textSize = 24f
-        txtLocalParticipantName!!.gravity = Gravity.CENTER
-        tvLocalParticipantName!!.visibility = View.GONE
-        val layoutParams = FrameLayout.LayoutParams(50, 50, Gravity.RIGHT)
-        layoutParams.setMargins(0, 12, 12, 0)
-        img_localActiveSpeaker!!.layoutParams = layoutParams
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            txtLocalParticipantName!!.foregroundGravity = Gravity.CENTER
-        }
-        participantCard!!.visibility = View.VISIBLE
-    }
 
-    private fun hideParticipantCard() {
-        localCard!!.layoutParams =
-            FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        val cardViewMarginParams = localCard!!.layoutParams as MarginLayoutParams
-        cardViewMarginParams.setMargins(30, 5, 30, 8)
-        localCard!!.requestLayout()
-        txtLocalParticipantName!!.layoutParams = FrameLayout.LayoutParams(220, 220, Gravity.CENTER)
-        txtLocalParticipantName!!.textSize = 40f
-        txtLocalParticipantName!!.gravity = Gravity.CENTER
-        tvLocalParticipantName!!.visibility = View.VISIBLE
-        val layoutParams = FrameLayout.LayoutParams(75, 75, Gravity.RIGHT)
-        layoutParams.setMargins(0, 30, 30, 0)
-        img_localActiveSpeaker!!.layoutParams = layoutParams
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            txtLocalParticipantName!!.foregroundGravity = Gravity.CENTER
-        }
-        participantCard!!.visibility = View.GONE
-    }
+    private fun setLocalListeners() {
+        meeting!!.localParticipant.addEventListener(object : ParticipantEventListener() {
+            override fun onStreamEnabled(stream: Stream) {
+                if (stream.kind.equals("video", ignoreCase = true)) {
+                    webcamEnabled = true
+                    toggleWebcamIcon()
+                } else if (stream.kind.equals("audio", ignoreCase = true)) {
+                    micEnabled = true
+                    toggleMicIcon()
+                } else if (stream.kind.equals("share", ignoreCase = true)) {
+                    findViewById<View>(R.id.localScreenShareView).visibility = VISIBLE
+                    screenShareParticipantNameSnackbar = Snackbar.make(
+                        findViewById(R.id.mainLayout), "You started presenting",
+                        Snackbar.LENGTH_SHORT
+                    )
+                    HelperClass.setSnackBarStyle(screenShareParticipantNameSnackbar!!.view, 0)
+                    screenShareParticipantNameSnackbar!!.isGestureInsetBottomIgnored = true
+                    screenShareParticipantNameSnackbar!!.view.setOnClickListener { screenShareParticipantNameSnackbar!!.dismiss() }
+                    screenShareParticipantNameSnackbar!!.show()
+                    localScreenShare = true
+                    screenshareEnabled = true
+                }
+            }
 
+            override fun onStreamDisabled(stream: Stream) {
+                if (stream.kind.equals("video", ignoreCase = true)) {
+                    webcamEnabled = false
+                    toggleWebcamIcon()
+                } else if (stream.kind.equals("audio", ignoreCase = true)) {
+                    micEnabled = false
+                    toggleMicIcon()
+                } else if (stream.kind.equals("share", ignoreCase = true)) {
+                    findViewById<View>(R.id.localScreenShareView).visibility = GONE
+                    localScreenShare = false
+                    screenshareEnabled = false
+                }
+            }
+        })
+    }
 
     private fun askPermissionForScreenShare() {
         val mediaProjectionManager = application.getSystemService(
@@ -638,7 +603,7 @@ class OneToOneCallActivity : AppCompatActivity() {
         if (requestCode != CAPTURE_PERMISSION_REQUEST_CODE) return
         if (resultCode != RESULT_OK) {
             Toast.makeText(
-                this@OneToOneCallActivity,
+                this@GroupCallActivity,
                 "You didn't give permission to capture the screen.",
                 Toast.LENGTH_SHORT
             ).show()
@@ -646,61 +611,6 @@ class OneToOneCallActivity : AppCompatActivity() {
             return
         }
         meeting!!.enableScreenShare(data)
-    }
-
-    private fun updatePresenter(participantId: String?) {
-        if (participantId == null) {
-            screenshareEnabled = false
-            return
-        } else {
-            screenshareEnabled = true
-        }
-
-        // find participant
-        val participant = meeting!!.participants[participantId] ?: return
-
-        // find share stream in participant
-        var shareStream: Stream? = null
-        for (stream: Stream in participant.streams.values) {
-            if ((stream.kind == "share")) {
-                shareStream = stream
-                break
-            }
-        }
-        if (shareStream == null) return
-        screenshareTrack = shareStream.track as VideoTrack
-        if (participantName != null) txtLocalParticipantName!!.text =
-            participantName!!.substring(0, 1)
-        tvName!!.text = "$participantName is presenting"
-        onTrackChange()
-        screenShareParticipantNameSnackbar = Snackbar.make(
-            findViewById(R.id.mainLayout), participant.displayName + " started presenting",
-            Snackbar.LENGTH_SHORT
-        )
-        HelperClass.setSnackBarStyle(screenShareParticipantNameSnackbar!!.view, 0)
-        screenShareParticipantNameSnackbar!!.isGestureInsetBottomIgnored = true
-        screenShareParticipantNameSnackbar!!.view.setOnClickListener { screenShareParticipantNameSnackbar!!.dismiss() }
-        screenShareParticipantNameSnackbar!!.show()
-
-        // listen for share stop event
-        participant.addEventListener(object : ParticipantEventListener() {
-            override fun onStreamDisabled(stream: Stream) {
-                if ((stream.kind == "share")) {
-                    val track = stream.track as VideoTrack
-                    screenshareTrack = null
-                    track.removeSink(svrParticipant)
-                    svrParticipant!!.clearImage()
-                    svrParticipant!!.visibility = View.GONE
-                    removeTrack(participantTrack, true)
-                    txtLocalParticipantName!!.text =
-                        meeting!!.localParticipant.displayName.substring(0, 1)
-                    tvName!!.text = participantName
-                    onTrackChange()
-                    screenshareEnabled = false
-                    localScreenShare = false
-                }
-            }
-        })
     }
 
     private val permissionHandler: PermissionHandler = object : PermissionHandler() {
@@ -732,7 +642,7 @@ class OneToOneCallActivity : AppCompatActivity() {
         val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
         val clip = ClipData.newPlainText("Copied text", text)
         clipboard.setPrimaryClip(clip)
-        Toast.makeText(this@OneToOneCallActivity, "Copied to clipboard!", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this@GroupCallActivity, "Copied to clipboard!", Toast.LENGTH_SHORT).show()
     }
 
     private fun toggleMic() {
@@ -746,7 +656,6 @@ class OneToOneCallActivity : AppCompatActivity() {
             val audioCustomTrack = VideoSDK.createAudioTrack("high_quality", noiseConfig, this)
             meeting!!.unmuteMic(audioCustomTrack)
         }
-        micEnabled = !micEnabled
     }
 
     private fun toggleWebCam() {
@@ -761,8 +670,6 @@ class OneToOneCallActivity : AppCompatActivity() {
             )
             meeting!!.enableWebcam(videoCustomTrack)
         }
-        webcamEnabled = !webcamEnabled
-        toggleWebcamIcon(webcamEnabled)
     }
 
     private fun setActionListeners() {
@@ -801,11 +708,71 @@ class OneToOneCallActivity : AppCompatActivity() {
         }
     }
 
+    private fun updatePresenter(participantId: String?) {
+        if (participantId == null) {
+            svrShare!!.clearImage()
+            svrShare!!.visibility = GONE
+            shareLayout!!.visibility = GONE
+            screenshareEnabled = false
+            return
+        } else {
+            screenshareEnabled = true
+        }
+
+        // find participant
+        val participant = meeting!!.participants[participantId] ?: return
+
+        // find share stream in participant
+        var shareStream: Stream? = null
+        for (stream: Stream in participant.streams.values) {
+            if ((stream.kind == "share")) {
+                shareStream = stream
+                break
+            }
+        }
+        if (shareStream == null) return
+        (findViewById<View>(R.id.tvScreenShareParticipantName) as TextView).text =
+            participant.displayName + " is presenting"
+        findViewById<View>(R.id.tvScreenShareParticipantName).visibility = VISIBLE
+
+        // display share video
+        shareLayout!!.visibility = VISIBLE
+        svrShare!!.visibility = VISIBLE
+        svrShare!!.setZOrderMediaOverlay(true)
+        svrShare!!.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT)
+        val videoTrack = shareStream.track as VideoTrack
+        videoTrack.addSink(svrShare)
+        screenShareParticipantNameSnackbar = Snackbar.make(
+            findViewById(R.id.mainLayout), participant.displayName + " started presenting",
+            Snackbar.LENGTH_SHORT
+        )
+        HelperClass.setSnackBarStyle(screenShareParticipantNameSnackbar!!.view, 0)
+        screenShareParticipantNameSnackbar!!.isGestureInsetBottomIgnored = true
+        screenShareParticipantNameSnackbar!!.view.setOnClickListener { screenShareParticipantNameSnackbar!!.dismiss() }
+        screenShareParticipantNameSnackbar!!.show()
+
+
+        // listen for share stop event
+        participant.addEventListener(object : ParticipantEventListener() {
+            override fun onStreamDisabled(stream: Stream) {
+                if ((stream.kind == "share")) {
+                    val track: VideoTrack = stream.track as VideoTrack
+                    track.removeSink(svrShare)
+                    svrShare!!.clearImage()
+                    svrShare!!.visibility = GONE
+                    shareLayout!!.visibility = GONE
+                    findViewById<View>(R.id.tvScreenShareParticipantName).visibility =
+                        GONE
+                    localScreenShare = false
+                }
+            }
+        })
+    }
 
     private fun showLeaveOrEndDialog() {
         val optionsArrayList: ArrayList<ListItem> = ArrayList<ListItem>()
         val leaveMeeting =
-            AppCompatResources.getDrawable(this@OneToOneCallActivity, R.drawable.ic_leave)?.let {
+            AppCompatResources.getDrawable(this@GroupCallActivity, R.drawable.ic_leave)?.let {
                 ListItem(
                     "Leave",
                     "Only you will leave the call",
@@ -813,32 +780,35 @@ class OneToOneCallActivity : AppCompatActivity() {
                 )
             }
         val endMeeting =
-            AppCompatResources.getDrawable(this@OneToOneCallActivity, R.drawable.ic_end_meeting)
-                ?.let {
-                    ListItem(
-                        "End",
-                        "End call for all the participants",
-                        it
-                    )
-                }
+            AppCompatResources.getDrawable(this@GroupCallActivity, R.drawable.ic_end_meeting)?.let {
+                ListItem(
+                    "End",
+                    "End call for all the participants",
+                    it
+                )
+            }
         optionsArrayList.add(leaveMeeting!!)
         optionsArrayList.add(endMeeting!!)
         val arrayAdapter: ArrayAdapter<*> = LeaveOptionListAdapter(
-            this@OneToOneCallActivity,
+            this@GroupCallActivity,
             R.layout.leave_options_list_layout,
             optionsArrayList
         )
         val materialAlertDialogBuilder =
-            MaterialAlertDialogBuilder(this@OneToOneCallActivity, R.style.AlertDialogCustom)
+            MaterialAlertDialogBuilder(this@GroupCallActivity, R.style.AlertDialogCustom)
                 .setAdapter(
                     arrayAdapter
                 ) { _: DialogInterface?, which: Int ->
                     when (which) {
                         0 -> {
+                            viewPager2!!.adapter = null
+                            ParticipantState.destroy()
                             unSubscribeTopics()
                             meeting!!.leave()
                         }
                         1 -> {
+                            viewPager2!!.adapter = null
+                            ParticipantState.destroy()
                             unSubscribeTopics()
                             meeting!!.end()
                         }
@@ -849,7 +819,7 @@ class OneToOneCallActivity : AppCompatActivity() {
         listView.divider =
             ColorDrawable(ContextCompat.getColor(this, R.color.md_grey_200)) // set color
         listView.setFooterDividersEnabled(false)
-        listView.addFooterView(View(this@OneToOneCallActivity))
+        listView.addFooterView(View(this@GroupCallActivity))
         listView.dividerHeight = 2
         val wmlp = alertDialog.window!!.attributes
         wmlp.gravity = Gravity.BOTTOM or Gravity.LEFT
@@ -864,7 +834,7 @@ class OneToOneCallActivity : AppCompatActivity() {
 
     private fun showAudioInputDialog() {
         val mics = meeting!!.mics
-        var audioDeviceListItem: ListItem? = null
+        var audioDeviceListItem: ListItem?
         val audioDeviceList: ArrayList<ListItem?> = ArrayList<ListItem?>()
         // Prepare list
         var item: String
@@ -879,23 +849,21 @@ class OneToOneCallActivity : AppCompatActivity() {
             audioDeviceList.add(audioDeviceListItem)
         }
         val arrayAdapter: ArrayAdapter<*> = AudioDeviceListAdapter(
-            this@OneToOneCallActivity,
+            this@GroupCallActivity,
             R.layout.audio_device_list_layout,
             audioDeviceList
         )
         val materialAlertDialogBuilder =
-            MaterialAlertDialogBuilder(this@OneToOneCallActivity, R.style.AlertDialogCustom)
+            MaterialAlertDialogBuilder(this@GroupCallActivity, R.style.AlertDialogCustom)
                 .setAdapter(arrayAdapter) { _: DialogInterface?, which: Int ->
-                    var audioDevice: AppRTCAudioManager.AudioDevice? = null
+                    var audioDevice: AudioDevice? = null
                     when (audioDeviceList[which]!!.itemName) {
-                        "Bluetooth" -> audioDevice = AppRTCAudioManager.AudioDevice.BLUETOOTH
-                        "Wired headset" -> audioDevice =
-                            AppRTCAudioManager.AudioDevice.WIRED_HEADSET
-                        "Speaker phone" -> audioDevice =
-                            AppRTCAudioManager.AudioDevice.SPEAKER_PHONE
-                        "Earpiece" -> audioDevice = AppRTCAudioManager.AudioDevice.EARPIECE
+                        "Bluetooth" -> audioDevice = AudioDevice.BLUETOOTH
+                        "Wired headset" -> audioDevice = AudioDevice.WIRED_HEADSET
+                        "Speaker phone" -> audioDevice = AudioDevice.SPEAKER_PHONE
+                        "Earpiece" -> audioDevice = AudioDevice.EARPIECE
                     }
-                    val noiseConfig: JSONObject = JSONObject()
+                    val noiseConfig = JSONObject()
                     JsonUtils.jsonPut(
                         noiseConfig,
                         "acousticEchoCancellation",
@@ -913,13 +881,13 @@ class OneToOneCallActivity : AppCompatActivity() {
         listView.divider =
             ColorDrawable(ContextCompat.getColor(this, R.color.md_grey_200)) // set color
         listView.setFooterDividersEnabled(false)
-        listView.addFooterView(View(this@OneToOneCallActivity))
+        listView.addFooterView(View(this@GroupCallActivity))
         listView.dividerHeight = 2
         val wmlp = alertDialog.window!!.attributes
         wmlp.gravity = Gravity.BOTTOM or Gravity.LEFT
         val layoutParams = WindowManager.LayoutParams()
         layoutParams.copyFrom(alertDialog.window!!.attributes)
-        layoutParams.width = Math.round(getWindowWidth() * 0.6).toInt()
+        layoutParams.width = (getWindowWidth() * 0.6).roundToInt()
         layoutParams.height = WindowManager.LayoutParams.WRAP_CONTENT
         alertDialog.window!!.attributes = layoutParams
         alertDialog.show()
@@ -928,26 +896,31 @@ class OneToOneCallActivity : AppCompatActivity() {
     private fun showMoreOptionsDialog() {
         val participantSize = meeting!!.participants.size + 1
         val moreOptionsArrayList: ArrayList<ListItem> = ArrayList<ListItem>()
+        val raised_hand = ListItem(
+            "Raise Hand",
+            AppCompatResources.getDrawable(this@GroupCallActivity, R.drawable.raise_hand)!!
+        )
         val start_screen_share = ListItem(
             "Share screen",
-            AppCompatResources.getDrawable(this@OneToOneCallActivity, R.drawable.ic_screen_share)!!
+            AppCompatResources.getDrawable(this@GroupCallActivity, R.drawable.ic_screen_share)!!
         )
         val stop_screen_share = ListItem(
             "Stop screen share",
-            AppCompatResources.getDrawable(this@OneToOneCallActivity, R.drawable.ic_screen_share)!!
+            AppCompatResources.getDrawable(this@GroupCallActivity, R.drawable.ic_screen_share)!!
         )
         val start_recording = ListItem(
             "Start recording",
-            AppCompatResources.getDrawable(this@OneToOneCallActivity, R.drawable.ic_recording)!!
+            AppCompatResources.getDrawable(this@GroupCallActivity, R.drawable.ic_recording)!!
         )
         val stop_recording = ListItem(
             "Stop recording",
-            AppCompatResources.getDrawable(this@OneToOneCallActivity, R.drawable.ic_recording)!!
+            AppCompatResources.getDrawable(this@GroupCallActivity, R.drawable.ic_recording)!!
         )
         val participant_list = ListItem(
             "Participants ($participantSize)",
-            AppCompatResources.getDrawable(this@OneToOneCallActivity, R.drawable.ic_people)!!
+            AppCompatResources.getDrawable(this@GroupCallActivity, R.drawable.ic_people)!!
         )
+        moreOptionsArrayList.add(raised_hand)
         if (localScreenShare) {
             moreOptionsArrayList.add(stop_screen_share)
         } else {
@@ -960,23 +933,26 @@ class OneToOneCallActivity : AppCompatActivity() {
         }
         moreOptionsArrayList.add(participant_list)
         val arrayAdapter: ArrayAdapter<*> = MoreOptionsListAdapter(
-            this@OneToOneCallActivity,
+            this@GroupCallActivity,
             R.layout.more_options_list_layout,
             moreOptionsArrayList
         )
         val materialAlertDialogBuilder =
-            MaterialAlertDialogBuilder(this@OneToOneCallActivity, R.style.AlertDialogCustom)
+            MaterialAlertDialogBuilder(this@GroupCallActivity, R.style.AlertDialogCustom)
                 .setAdapter(
                     arrayAdapter
                 ) { _: DialogInterface?, which: Int ->
                     when (which) {
                         0 -> {
-                            toggleScreenSharing()
+                            raisedHand()
                         }
                         1 -> {
-                            toggleRecording()
+                            toggleScreenSharing()
                         }
                         2 -> {
+                            toggleRecording()
+                        }
+                        3 -> {
                             openParticipantList()
                         }
                     }
@@ -986,16 +962,20 @@ class OneToOneCallActivity : AppCompatActivity() {
         listView.divider =
             ColorDrawable(ContextCompat.getColor(this, R.color.md_grey_200)) // set color
         listView.setFooterDividersEnabled(false)
-        listView.addFooterView(View(this@OneToOneCallActivity))
+        listView.addFooterView(View(this@GroupCallActivity))
         listView.dividerHeight = 2
         val wmlp = alertDialog.window!!.attributes
         wmlp.gravity = Gravity.BOTTOM or Gravity.RIGHT
         val layoutParams = WindowManager.LayoutParams()
         layoutParams.copyFrom(alertDialog.window!!.attributes)
-        layoutParams.width = (getWindowWidth() * 0.8).roundToInt()
+        layoutParams.width = (getWindowWidth() * 0.8).roundToInt().toInt()
         layoutParams.height = WindowManager.LayoutParams.WRAP_CONTENT
         alertDialog.window!!.attributes = layoutParams
         alertDialog.show()
+    }
+
+    private fun raisedHand() {
+        meeting!!.pubSub.publish("RAISE_HAND", "Raise Hand by Me", PubSubPublishOptions())
     }
 
     private fun toggleRecording() {
@@ -1018,218 +998,33 @@ class OneToOneCallActivity : AppCompatActivity() {
             meeting!!.leave()
             meeting = null
         }
-        if (svrParticipant != null) {
-            svrParticipant!!.clearImage()
-            svrParticipant!!.visibility = View.GONE
-            svrParticipant!!.release()
+        if (svrShare != null) {
+            svrShare!!.clearImage()
+            svrShare!!.visibility = GONE
+            shareLayout!!.visibility = GONE
+            svrShare!!.release()
         }
-        if (svrLocal != null) {
-            svrLocal!!.clearImage()
-            svrLocal!!.visibility = View.GONE
-            svrLocal!!.release()
-        }
-        timer.cancel()
         super.onDestroy()
     }
 
-    private fun unSubscribeTopics() {
+    fun unSubscribeTopics() {
         if (meeting != null) {
             meeting!!.pubSub.unsubscribe("CHAT", chatListener)
+            meeting!!.pubSub.unsubscribe("RAISE_HAND", raiseHandListener)
         }
-    }
-
-    private fun onTrackChange() {
-        if (screenshareTrack != null) {
-            if (meeting!!.participants.size == 0) {
-                showParticipantCard()
-                if (localTrack != null) {
-                    localTrack!!.addSink(svrLocal)
-                    svrLocal!!.visibility = View.VISIBLE
-                }
-            } else {
-                if (localTrack != null) {
-                    localTrack!!.removeSink(svrLocal)
-                    svrLocal!!.clearImage()
-                    svrLocal!!.visibility = View.GONE
-                }
-                if (participantTrack != null) {
-                    participantTrack!!.removeSink(svrParticipant)
-                    svrParticipant!!.clearImage()
-                    participantTrack!!.addSink(svrLocal)
-                    if (participantName != null) txtLocalParticipantName!!.text =
-                        participantName!!.substring(0, 1)
-                    svrLocal!!.visibility = View.VISIBLE
-                }
-            }
-            if(localScreenShare) {
-                participantCard!!.visibility = View.GONE
-                findViewById<View>(R.id.localScreenShareView).visibility = View.VISIBLE
-            }else{
-                screenshareTrack!!.addSink(svrParticipant)
-                svrParticipant!!.visibility = View.VISIBLE
-            }
-        } else {
-            if (participantTrack != null) {
-                svrParticipant!!.visibility = View.VISIBLE
-                participantTrack!!.addSink(svrParticipant)
-                (img_participantActiveSpeaker as View).bringToFront()
-            }
-            if (localTrack != null) {
-                svrLocal!!.visibility = View.VISIBLE
-                svrLocal!!.setZOrderMediaOverlay(true)
-                localTrack!!.addSink(svrLocal)
-                (img_localActiveSpeaker as View?)!!.bringToFront()
-                (localCard as View?)!!.bringToFront()
-            }
-        }
-    }
-
-    private fun removeTrack(track: VideoTrack?, isLocal: Boolean) {
-        if (screenshareTrack == null) {
-            participantCard!!.visibility = View.VISIBLE
-            findViewById<View>(R.id.localScreenShareView).visibility = View.GONE
-            if (isLocal) {
-                track?.removeSink(svrLocal)
-                svrLocal!!.clearImage()
-                svrLocal!!.visibility = View.GONE
-            } else {
-                track?.removeSink(svrParticipant)
-                svrParticipant!!.clearImage()
-                svrParticipant!!.visibility = View.GONE
-            }
-        } else {
-            if (!isLocal) {
-                track?.removeSink(svrLocal)
-                svrLocal!!.clearImage()
-                svrLocal!!.visibility = View.GONE
-                onTrackChange()
-            } else {
-                if (meeting!!.participants.size == 0) {
-                    track?.removeSink(svrLocal)
-                    svrLocal!!.clearImage()
-                    svrLocal!!.visibility = View.GONE
-                } else {
-                    track?.removeSink(svrParticipant)
-                    svrParticipant!!.clearImage()
-                    svrParticipant!!.visibility = View.GONE
-                    onTrackChange()
-                }
-            }
-        }
-    }
-
-    private val participantEventListener: ParticipantEventListener =
-        object : ParticipantEventListener() {
-            override fun onStreamEnabled(stream: Stream) {
-                if (stream.kind.equals("video", ignoreCase = true)) {
-                    if (meeting!!.participants.size < 2) {
-                        val track = stream.track as VideoTrack
-                        participantTrack = track
-                        onTrackChange()
-                        setQuality("high")
-                    }
-                }
-                if (stream.kind.equals("audio", ignoreCase = true)) {
-                    if (meeting!!.participants.size >= 2) {
-                        stream.pause()
-                    }
-                }
-            }
-
-            override fun onStreamDisabled(stream: Stream) {
-                if (stream.kind.equals("video", ignoreCase = true)) {
-                    if (meeting!!.participants.size < 2) {
-                        val track: VideoTrack = stream.track as VideoTrack
-                        participantTrack = null
-                        removeTrack(track, false)
-                    }
-                }
-                if (stream.kind.equals("audio", ignoreCase = true)) {
-                    if (meeting!!.participants.size >= 2) {
-                        stream.pause()
-                    }
-                }
-            }
-        }
-
-    private fun setQuality(quality: String) {
-        val participants: Iterator<Participant> = meeting!!.participants.values.iterator()
-        for (i in 0 until meeting!!.participants.size) {
-            val participant = participants.next()
-            participant.quality = quality
-        }
-    }
-
-    private fun setLocalListeners() {
-        meeting!!.localParticipant.addEventListener(object : ParticipantEventListener() {
-            override fun onStreamEnabled(stream: Stream) {
-                if (stream.kind.equals("video", ignoreCase = true)) {
-                    val track = stream.track as VideoTrack
-                    localTrack = track
-                    onTrackChange()
-                } else if (stream.kind.equals("audio", ignoreCase = true)) {
-                    toggleMicIcon(true)
-                } else if (stream.kind.equals("share", ignoreCase = true)) {
-                    // display share video
-                    val videoTrack = stream.track as VideoTrack
-                    screenshareTrack = videoTrack
-                    if (participantName != null) txtLocalParticipantName!!.text =
-                        participantName!!.substring(0, 1)
-                    tvName!!.visibility = View.GONE
-                    screenShareParticipantNameSnackbar = Snackbar.make(
-                        findViewById(R.id.mainLayout), "You started presenting",
-                        Snackbar.LENGTH_SHORT
-                    )
-                    HelperClass.setSnackBarStyle(screenShareParticipantNameSnackbar!!.view, 0)
-                    screenShareParticipantNameSnackbar!!.isGestureInsetBottomIgnored = true
-                    screenShareParticipantNameSnackbar!!.view.setOnClickListener { screenShareParticipantNameSnackbar!!.dismiss() }
-                    screenShareParticipantNameSnackbar!!.show()
-                    onTrackChange()
-                    //
-                    localScreenShare = true
-                    screenshareEnabled = true
-                }
-            }
-
-            override fun onStreamDisabled(stream: Stream) {
-                if (stream.kind.equals("video", ignoreCase = true)) {
-                    val track: VideoTrack = stream.track as VideoTrack
-                    localTrack = null
-                    removeTrack(track, true)
-                    toggleWebcamIcon(false)
-                } else if (stream.kind.equals("audio", ignoreCase = true)) {
-                    toggleMicIcon(false)
-                } else if (stream.kind.equals("share", ignoreCase = true)) {
-                    val track: VideoTrack = stream.track as VideoTrack
-                    screenshareTrack = null
-                    track.removeSink(svrParticipant)
-                    svrParticipant!!.clearImage()
-                    svrParticipant!!.visibility = View.GONE
-                    if (meeting!!.participants.isEmpty()) hideParticipantCard()
-                    removeTrack(participantTrack, true)
-                    txtLocalParticipantName!!.text =
-                        meeting!!.localParticipant.displayName.substring(0, 1)
-                    tvName!!.visibility = View.VISIBLE
-                    onTrackChange()
-                    //
-                    localScreenShare = false
-                    screenshareEnabled = false
-                }
-            }
-        })
     }
 
     private fun openParticipantList() {
         val participantsListView: RecyclerView
         val close: ImageView
         bottomSheetDialog = BottomSheetDialog(this)
-        val v3: View = LayoutInflater.from(applicationContext)
+        val v3 = LayoutInflater.from(applicationContext)
             .inflate(R.layout.layout_participants_list_view, findViewById(R.id.layout_participants))
         bottomSheetDialog!!.setContentView(v3)
         participantsListView = v3.findViewById(R.id.rvParticipantsLinearView)
         (v3.findViewById<View>(R.id.participant_heading) as TextView).typeface =
             RobotoFont().getTypeFace(
-                this@OneToOneCallActivity
+                this@GroupCallActivity
             )
         close = v3.findViewById(R.id.ic_close)
         participantsListView.minimumHeight = getWindowHeight()
@@ -1239,21 +1034,21 @@ class OneToOneCallActivity : AppCompatActivity() {
         participants = getAllParticipants()
         participantsListView.layoutManager = LinearLayoutManager(applicationContext)
         participantsListView.adapter =
-            ParticipantListAdapter(participants, meeting!!, this@OneToOneCallActivity)
+            ParticipantListAdapter(participants, meeting!!, this@GroupCallActivity)
         participantsListView.setHasFixedSize(true)
     }
 
     private fun getWindowHeight(): Int {
         // Calculate window height for fullscreen use
         val displayMetrics = DisplayMetrics()
-        (this@OneToOneCallActivity).windowManager.defaultDisplay.getMetrics(displayMetrics)
+        (this@GroupCallActivity).windowManager.defaultDisplay.getMetrics(displayMetrics)
         return displayMetrics.heightPixels
     }
 
     private fun getWindowWidth(): Int {
         // Calculate window height for fullscreen use
         val displayMetrics = DisplayMetrics()
-        (this@OneToOneCallActivity).windowManager.defaultDisplay.getMetrics(displayMetrics)
+        (this@GroupCallActivity).windowManager.defaultDisplay.getMetrics(displayMetrics)
         return displayMetrics.widthPixels
     }
 
@@ -1266,6 +1061,7 @@ class OneToOneCallActivity : AppCompatActivity() {
         }
         return participantList
     }
+
 
     @SuppressLint("ClickableViewAccessibility")
     fun openChat() {
@@ -1282,29 +1078,28 @@ class OneToOneCallActivity : AppCompatActivity() {
             getWindowHeight() / 2
         )
         messageRcv.layoutParams = lp
-        val mBottomSheetCallback: BottomSheetBehavior.BottomSheetCallback =
-            object : BottomSheetBehavior.BottomSheetCallback() {
-                override fun onStateChanged(
-                    bottomSheet: View,
-                    @BottomSheetBehavior.State newState: Int
-                ) {
-                    if (newState == BottomSheetBehavior.STATE_COLLAPSED) {
-                        val lp = RelativeLayout.LayoutParams(
-                            RelativeLayout.LayoutParams.MATCH_PARENT,
-                            getWindowHeight() / 2
-                        )
-                        messageRcv.layoutParams = lp
-                    } else if (newState == BottomSheetBehavior.STATE_EXPANDED) {
-                        val lp = RelativeLayout.LayoutParams(
-                            RelativeLayout.LayoutParams.MATCH_PARENT,
-                            RelativeLayout.LayoutParams.MATCH_PARENT
-                        )
-                        messageRcv.layoutParams = lp
-                    }
+        val mBottomSheetCallback: BottomSheetCallback = object : BottomSheetCallback() {
+            override fun onStateChanged(
+                bottomSheet: View,
+                @BottomSheetBehavior.State newState: Int
+            ) {
+                if (newState == BottomSheetBehavior.STATE_COLLAPSED) {
+                    val lp = RelativeLayout.LayoutParams(
+                        RelativeLayout.LayoutParams.MATCH_PARENT,
+                        getWindowHeight() / 2
+                    )
+                    messageRcv.layoutParams = lp
+                } else if (newState == BottomSheetBehavior.STATE_EXPANDED) {
+                    val lp = RelativeLayout.LayoutParams(
+                        RelativeLayout.LayoutParams.MATCH_PARENT,
+                        RelativeLayout.LayoutParams.MATCH_PARENT
+                    )
+                    messageRcv.layoutParams = lp
                 }
-
-                override fun onSlide(bottomSheet: View, slideOffset: Float) {}
             }
+
+            override fun onSlide(bottomSheet: View, slideOffset: Float) {}
+        }
         bottomSheetDialog!!.behavior.addBottomSheetCallback(mBottomSheetCallback)
         etmessage = v3.findViewById(R.id.etMessage)
         etmessage!!.setOnTouchListener { view, event ->
@@ -1318,7 +1113,7 @@ class OneToOneCallActivity : AppCompatActivity() {
         }
         val btnSend = v3.findViewById<ImageButton>(R.id.btnSend)
         btnSend.isEnabled = false
-        etmessage!!.onFocusChangeListener = View.OnFocusChangeListener { _, hasFocus ->
+        etmessage!!.onFocusChangeListener = OnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
                 etmessage!!.hint = ""
             }
@@ -1367,7 +1162,7 @@ class OneToOneCallActivity : AppCompatActivity() {
                 etmessage!!.setText("")
             } else {
                 Toast.makeText(
-                    this@OneToOneCallActivity, "Please Enter Message",
+                    this@GroupCallActivity, "Please Enter Message",
                     Toast.LENGTH_SHORT
                 ).show()
             }
@@ -1382,7 +1177,6 @@ class OneToOneCallActivity : AppCompatActivity() {
             )
         }
     }
-
 
     fun showMeetingTime() {
         runnable = object : Runnable {
@@ -1406,16 +1200,14 @@ class OneToOneCallActivity : AppCompatActivity() {
     }
 
     private fun showMicRequestDialog(listener: MicRequestListener) {
-        val alertDialog = MaterialAlertDialogBuilder(
-            this@OneToOneCallActivity,
-            R.style.AlertDialogCustom
-        ).create()
+        val alertDialog =
+            MaterialAlertDialogBuilder(this@GroupCallActivity, R.style.AlertDialogCustom).create()
         alertDialog.setCanceledOnTouchOutside(false)
         val inflater = this.layoutInflater
-        val dialogView: View = inflater.inflate(R.layout.alert_dialog_layout, null)
+        val dialogView = inflater.inflate(R.layout.alert_dialog_layout, null)
         alertDialog.setView(dialogView)
         val title = dialogView.findViewById<View>(R.id.title) as TextView
-        title.visibility = View.GONE
+        title.visibility = GONE
         val message = dialogView.findViewById<View>(R.id.message) as TextView
         message.text = "Host is asking you to unmute your mic, do you want to allow ?"
         val positiveButton = dialogView.findViewById<Button>(R.id.positiveBtn)
@@ -1435,16 +1227,14 @@ class OneToOneCallActivity : AppCompatActivity() {
 
 
     private fun showWebcamRequestDialog(listener: WebcamRequestListener) {
-        val alertDialog = MaterialAlertDialogBuilder(
-            this@OneToOneCallActivity,
-            R.style.AlertDialogCustom
-        ).create()
+        val alertDialog =
+            MaterialAlertDialogBuilder(this@GroupCallActivity, R.style.AlertDialogCustom).create()
         alertDialog.setCanceledOnTouchOutside(false)
         val inflater = this.layoutInflater
-        val dialogView: View = inflater.inflate(R.layout.alert_dialog_layout, null)
+        val dialogView = inflater.inflate(R.layout.alert_dialog_layout, null)
         alertDialog.setView(dialogView)
         val title = dialogView.findViewById<View>(R.id.title) as TextView
-        title.visibility = View.GONE
+        title.visibility = GONE
         val message = dialogView.findViewById<View>(R.id.message) as TextView
         message.text = "Host is asking you to enable your webcam, do you want to allow ?"
         val positiveButton = dialogView.findViewById<Button>(R.id.positiveBtn)

@@ -30,7 +30,7 @@ class NetworkUtils(var context: Context?) {
         return networkInfo != null && networkInfo.isConnected
     }
 
-    fun getToken(responseListener: ResponseListener) {
+    fun getToken(responseListener: ResponseListener<String>) {
         if (!HelperClass().isNullOrEmpty(AUTH_TOKEN) && !HelperClass().isNullOrEmpty(AUTH_URL)) {
             Toast.makeText(
                 context,
@@ -72,7 +72,7 @@ class NetworkUtils(var context: Context?) {
         ).show()
     }
 
-    fun createMeeting(token: String?, meetingEventListener: ResponseListener) {
+    fun createMeeting(token: String?, meetingEventListener: ResponseListener<String>) {
         AndroidNetworking.post("https://api.videosdk.live/v2/rooms")
             .addHeaders("Authorization", token)
             .build()
@@ -96,7 +96,7 @@ class NetworkUtils(var context: Context?) {
             })
     }
 
-    fun joinMeeting(token: String?, roomId: String, meetingEventListener: ResponseListener) {
+    fun joinMeeting(token: String?, roomId: String, meetingEventListener: ResponseListener<String>) {
         AndroidNetworking.get("https://api.videosdk.live/v2/rooms/validate/$roomId")
             .addHeaders("Authorization", token)
             .build()
@@ -115,7 +115,7 @@ class NetworkUtils(var context: Context?) {
             })
     }
 
-    fun fetchMeetingTime(meetingId: String, token: String?, responseListener: ResponseListener) {
+    fun fetchMeetingTime(meetingId: String, token: String?, responseListener: ResponseListener<Int>) {
         AndroidNetworking.get("https://api.videosdk.live/v2/sessions/?roomId=$meetingId")
             .addHeaders("Authorization", token)
             .build()
@@ -132,7 +132,7 @@ class NetworkUtils(var context: Context?) {
                         val difference = currentTime.time - startMeetingDate!!.time
                         activeMeetingSeconds =
                             Math.toIntExact(TimeUnit.MILLISECONDS.toSeconds(difference))
-                        responseListener.onMeetingTimeChanged(activeMeetingSeconds)
+                        responseListener.onResponse(activeMeetingSeconds)
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
