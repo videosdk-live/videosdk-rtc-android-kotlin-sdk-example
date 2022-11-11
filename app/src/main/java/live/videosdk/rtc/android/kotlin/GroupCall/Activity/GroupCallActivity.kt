@@ -3,11 +3,8 @@ package live.videosdk.rtc.android.kotlin.GroupCall.Activity
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.*
-import android.graphics.Bitmap
 import android.graphics.Color
-import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
-import android.graphics.drawable.Drawable
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
@@ -148,10 +145,27 @@ class GroupCallActivity : AppCompatActivity() {
         // pass the token generated from api server
         VideoSDK.config(token)
 
+        val customTracks: MutableMap<String, CustomStreamTrack> = HashMap()
+
+        val videoCustomTrack = VideoSDK.createCameraVideoTrack(
+            "h720p_w960p",
+            "front",
+            CustomStreamTrack.VideoMode.DETAIL,
+            this
+        )
+        customTracks["video"] = videoCustomTrack
+
+        val noiseConfig = JSONObject()
+        JsonUtils.jsonPut(noiseConfig, "acousticEchoCancellation", true)
+        JsonUtils.jsonPut(noiseConfig, "noiseSuppression", true)
+        JsonUtils.jsonPut(noiseConfig, "autoGainControl", true)
+        val audioCustomTrack = VideoSDK.createAudioTrack("high_quality", noiseConfig, this)
+        customTracks["mic"] = audioCustomTrack
+
         // create a new meeting instance
         meeting = VideoSDK.initMeeting(
             this@GroupCallActivity, meetingId, localParticipantName,
-            micEnabled, webcamEnabled, null, null
+            micEnabled, webcamEnabled, null, customTracks
         )
 
         //

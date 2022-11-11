@@ -3,13 +3,14 @@ package live.videosdk.rtc.android.kotlin.GroupCall.Fragment
 import android.annotation.SuppressLint
 import android.os.Bundle
 import android.util.Log
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.GridLayout
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.cardview.widget.CardView
+import androidx.fragment.app.Fragment
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
@@ -25,19 +26,19 @@ import live.videosdk.rtc.android.listeners.ParticipantEventListener
 import org.webrtc.EglBase
 import org.webrtc.SurfaceViewRenderer
 import org.webrtc.VideoTrack
-import java.lang.Exception
-import java.util.ArrayList
+import pl.droidsonroids.gif.GifImageView
 
-class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragment() {
-    var participantGridLayout: GridLayout? = null
-    var participantChangeListener: ParticipantChangeListener? = null
-    var participantState: ParticipantState? = null
-    var eglContext: EglBase.Context? = null
+
+class ParticipantViewFragment(var meeting: Meeting?, private var position: Int) : Fragment() {
+    private var participantGridLayout: GridLayout? = null
+    private var participantChangeListener: ParticipantChangeListener? = null
+    private var participantState: ParticipantState? = null
+    private var eglContext: EglBase.Context? = null
     private var participants: List<Participant>? = null
     private var participantListArr: List<List<Participant>>? = null
-    var tabLayoutMediator: TabLayoutMediator? = null
-    var viewPager2: ViewPager2? = null
-    var tabLayout: TabLayout? = null
+    private var tabLayoutMediator: TabLayoutMediator? = null
+    private var viewPager2: ViewPager2? = null
+    private var tabLayout: TabLayout? = null
     private var screenShareFlag = false
 
     override fun onCreateView(
@@ -58,41 +59,55 @@ class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragme
         super.onViewCreated(view, savedInstanceState)
         participantGridLayout!!.setOnTouchListener((activity as GroupCallActivity?)!!.getTouchListener())
         participantChangeListener = object : ParticipantChangeListener {
-            override fun onChangeParticipant(participantList: List<List<Participant?>?>?) {
-                participantListArr = (participantList as List<List<Participant>>?)!!
-                if (position < participantList!!.size) {
-                    participants = participantList[position]
-                    updateGridLayout()
-                    showInGUI()
-                    tabLayoutMediator = TabLayoutMediator(
-                        tabLayout!!, viewPager2!!, true
-                    ) { _: TabLayout.Tab?, _: Int ->
-                        Log.d(
-                            "TAG",
-                            "onCreate: "
-                        )
-                    }
-                    if (tabLayoutMediator!!.isAttached) {
-                        tabLayoutMediator!!.detach()
-                    }
-                    tabLayoutMediator!!.attach()
-                    if (participantList.size == 1) {
-                        tabLayout!!.visibility = View.GONE
-                    } else {
-                        tabLayout!!.visibility = View.VISIBLE
-                    }
-                }
+            override fun onChangeParticipant(participantList: List<List<Participant>>?) {
+                changeLayout(participantList, null)
             }
 
 
             override fun onPresenterChanged(screenShare: Boolean) {
                 screenShareFlag = screenShare
                 updateGridLayout()
-                showInGUI()
+                showInGUI(null)
+            }
+
+            override fun onSpeakerChanged(
+                participantList: List<List<Participant>>?,
+                activeSpeaker: Participant?
+            ) {
+                if (participantList != null)
+                    changeLayout(participantList, activeSpeaker)
+                else
+                    activeSpeakerLayout(activeSpeaker)
             }
         }
         participantState = ParticipantState.getInstance(meeting!!)
         participantState!!.addParticipantChangeListener(participantChangeListener!!)
+    }
+
+    private fun activeSpeakerLayout(activeSpeaker: Participant?) {
+        for (j in 0 until participantGridLayout!!.childCount) {
+            val participant = participants!![j]
+            val participantView = participantGridLayout!!.getChildAt(j)
+            val participantCard = participantView.findViewById<CardView>(R.id.ParticipantCard)
+            val ivMicStatus = participantView.findViewById<ImageView>(R.id.ivMicStatus)
+            val img_participantActiveSpeaker =
+                participantView.findViewById<GifImageView>(R.id.img_participantActiveSpeaker)
+            if (activeSpeaker == null) {
+                participantCard.foreground = null
+                img_participantActiveSpeaker.visibility = View.GONE
+                ivMicStatus.visibility = View.VISIBLE
+            } else {
+                if (participant.id == activeSpeaker.id) {
+                    participantCard.foreground = requireContext().getDrawable(R.drawable.layout_bg)
+                    ivMicStatus.visibility = View.GONE
+                    img_participantActiveSpeaker.visibility = View.VISIBLE
+                } else {
+                    participantCard.foreground = null
+                    img_participantActiveSpeaker.visibility = View.GONE
+                    ivMicStatus.visibility = View.VISIBLE
+                }
+            }
+        }
     }
 
     override fun onResume() {
@@ -133,12 +148,63 @@ class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragme
         super.onPause()
     }
 
+    private fun changeLayout(
+        participantList: List<List<Participant>>?,
+        activeSpeaker: Participant?
+    ) {
+        participantListArr = participantList!!
+        if (position < participantList.size) {
+            participants = participantList[position]
+            updateGridLayout()
+            showInGUI(activeSpeaker)
+            tabLayoutMediator = TabLayoutMediator(
+                tabLayout!!, viewPager2!!, true
+            ) { _: TabLayout.Tab?, _: Int ->
+                Log.d(
+                    "TAG",
+                    "onCreate: "
+                )
+            }
+            if (tabLayoutMediator!!.isAttached) {
+                tabLayoutMediator!!.detach()
+            }
+            tabLayoutMediator!!.attach()
+            if (participantList.size == 1) {
+                tabLayout!!.visibility = View.GONE
+            } else {
+                tabLayout!!.visibility = View.VISIBLE
+            }
+        }
+    }
+
     // Call where View ready.
-    private fun showInGUI() {
+    private fun showInGUI(activeSpeaker: Participant?) {
         for (i in participants!!.indices) {
             val participant = participants!![i]
             val participantView = LayoutInflater.from(context)
                 .inflate(R.layout.item_participant, participantGridLayout, false)
+
+            val participantCard: CardView = participantView.findViewById(R.id.ParticipantCard)
+            val ivMicStatus: ImageView = participantView.findViewById(R.id.ivMicStatus)
+            val img_participantActiveSpeaker: GifImageView =
+                participantView.findViewById(R.id.img_participantActiveSpeaker)
+
+            if (activeSpeaker == null) {
+                participantCard.foreground = null
+                img_participantActiveSpeaker.visibility = View.GONE
+                ivMicStatus.visibility = View.VISIBLE
+            } else {
+                if (participant.id.equals(activeSpeaker.id)) {
+                    participantCard.foreground = requireContext().getDrawable(R.drawable.layout_bg)
+                    ivMicStatus.visibility = View.GONE
+                    img_participantActiveSpeaker.visibility = View.VISIBLE
+                } else {
+                    participantCard.foreground = null
+                    img_participantActiveSpeaker.visibility = View.GONE
+                    ivMicStatus.visibility = View.VISIBLE
+                }
+            }
+
             val tvName = participantView.findViewById<TextView>(R.id.tvName)
             val txtParticipantName = participantView.findViewById<TextView>(R.id.txtParticipantName)
             val svrParticipant =
@@ -149,13 +215,12 @@ class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragme
                 Log.e("Error", "showInGUI: " + e.message)
             }
             if (participant.id == meeting!!.localParticipant.id) {
-                svrParticipant.setMirror(true);
+                svrParticipant.setMirror(true)
                 tvName.text = "You"
             } else {
                 tvName.text = participant.displayName
             }
             txtParticipantName.text = participant.displayName.substring(0, 1)
-            val ivMicStatus = participantView.findViewById<ImageView>(R.id.ivMicStatus)
             for ((_, stream) in participant.streams) {
                 if (stream.kind.equals("video", ignoreCase = true)) {
                     svrParticipant.visibility = View.VISIBLE
@@ -226,15 +291,19 @@ class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragme
             participantGridLayout!!.columnCount = 2
             participantGridLayout!!.rowCount = 1
         } else {
-            if (participants!!.size == 1) {
-                participantGridLayout!!.columnCount = 1
-                participantGridLayout!!.rowCount = 1
-            } else if (participants!!.size == 2) {
-                participantGridLayout!!.columnCount = 1
-                participantGridLayout!!.rowCount = 2
-            } else {
-                participantGridLayout!!.columnCount = 2
-                participantGridLayout!!.rowCount = 2
+            when (participants!!.size) {
+                1 -> {
+                    participantGridLayout!!.columnCount = 1
+                    participantGridLayout!!.rowCount = 1
+                }
+                2 -> {
+                    participantGridLayout!!.columnCount = 1
+                    participantGridLayout!!.rowCount = 2
+                }
+                else -> {
+                    participantGridLayout!!.columnCount = 2
+                    participantGridLayout!!.rowCount = 2
+                }
             }
         }
     }

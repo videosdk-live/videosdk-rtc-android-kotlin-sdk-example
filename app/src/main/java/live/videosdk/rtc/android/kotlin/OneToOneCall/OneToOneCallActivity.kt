@@ -170,10 +170,27 @@ class OneToOneCallActivity : AppCompatActivity() {
         // pass the token generated from api server
         VideoSDK.config(token)
 
+        val customTracks: MutableMap<String, CustomStreamTrack> = HashMap()
+
+        val videoCustomTrack = VideoSDK.createCameraVideoTrack(
+            "h720p_w960p",
+            "front",
+            CustomStreamTrack.VideoMode.DETAIL,
+            this
+        )
+        customTracks["video"] = videoCustomTrack
+
+        val noiseConfig = JSONObject()
+        JsonUtils.jsonPut(noiseConfig, "acousticEchoCancellation", true)
+        JsonUtils.jsonPut(noiseConfig, "noiseSuppression", true)
+        JsonUtils.jsonPut(noiseConfig, "autoGainControl", true)
+        val audioCustomTrack = VideoSDK.createAudioTrack("high_quality", noiseConfig, this)
+        customTracks["mic"] = audioCustomTrack
+
         // create a new meeting instance
         meeting = VideoSDK.initMeeting(
             this@OneToOneCallActivity, meetingId, localParticipantName,
-            false, false, null, null
+            false, false, null, customTracks
         )
         meeting!!.addEventListener(meetingEventListener)
 

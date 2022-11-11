@@ -3,6 +3,7 @@ package live.videosdk.rtc.android.kotlin.GroupCall.Utils
 import android.text.TextUtils
 import live.videosdk.rtc.android.Meeting
 import live.videosdk.rtc.android.Participant
+import live.videosdk.rtc.android.kotlin.Common.Utils.HelperClass
 import live.videosdk.rtc.android.kotlin.GroupCall.Listener.ParticipantChangeListener
 import live.videosdk.rtc.android.listeners.MeetingEventListener
 
@@ -12,6 +13,8 @@ class ParticipantState(meeting: Meeting) {
     var participantChangeListenerList: MutableList<ParticipantChangeListener> =
         ArrayList()
     private var screenShare = false
+    private var activeSpeakerParticipantList: List<List<Participant>>? = null
+    private var participantsArr: List<List<Participant>>? = null
 
     companion object {
         private var participantState: ParticipantState? = null
@@ -62,6 +65,48 @@ class ParticipantState(meeting: Meeting) {
                     participantChangeListenerList[i].onPresenterChanged(screenShare)
                 }
             }
+
+            override fun onSpeakerChanged(participantId: String) {
+                super.onSpeakerChanged(participantId)
+                var updateGrid = true
+                var activeSpeaker: Participant? = null
+                if (!HelperClass().isNullOrEmpty(participantId)) {
+                    activeSpeaker = if (meeting.localParticipant.id == participantId) {
+                        meeting.localParticipant
+                    } else {
+                        meeting.participants[participantId]
+                    }
+                    val participants: List<Participant>
+                    if (activeSpeakerParticipantList == null) {
+                        participants = getParticipantList()[0]
+                    } else {
+                        if (activeSpeakerParticipantList != participantsArr) {
+                            activeSpeakerParticipantList = participantsArr
+                        }
+                        participants = activeSpeakerParticipantList!![0]
+                    }
+                    for (j in participants.indices) {
+                        val participant = participants[j]
+                        if (participant.id == participantId) {
+                            updateGrid = false
+                            break
+                        }
+                    }
+                    if (updateGrid) {
+                        activeSpeakerParticipantList =
+                            getActiveSpeakerParticipantList(activeSpeaker)
+                        participantsArr = activeSpeakerParticipantList
+                    }
+                } else {
+                    updateGrid = false
+                }
+                for (i in participantChangeListenerList.indices) {
+                    if (updateGrid) participantChangeListenerList[i].onSpeakerChanged(
+                        activeSpeakerParticipantList,
+                        activeSpeaker
+                    ) else participantChangeListenerList[i].onSpeakerChanged(null, activeSpeaker)
+                }
+            }
         })
     }
 
@@ -84,13 +129,46 @@ class ParticipantState(meeting: Meeting) {
                 participantList.add(participant)
             }
         }
+        participantsArr = participantListArr
         return participantListArr
     }
+
+    fun getActiveSpeakerParticipantList(activeSpeaker: Participant?): List<MutableList<Participant>> {
+        val participantListArr: MutableList<MutableList<Participant>> = ArrayList()
+        val participants: Iterator<Participant> = meeting!!.participants.values.iterator()
+        if (participantListArr.size == 0) {
+            val firstPageParticipantArr: MutableList<Participant> = ArrayList()
+            firstPageParticipantArr.add(meeting!!.localParticipant)
+            if (activeSpeaker != null && meeting!!.localParticipant.id != activeSpeaker.id) {
+                firstPageParticipantArr.add(activeSpeaker)
+            }
+            participantListArr.add(firstPageParticipantArr)
+        }
+        for (i in 0 until meeting!!.participants.size) {
+            val participantList = participantListArr[participantListArr.size - 1]
+            if (participantList.size == perPageParticipantSize) {
+                val newParticipantArr: MutableList<Participant> = ArrayList()
+                val participant = participants.next()
+                if (!(activeSpeaker != null && participant.id == activeSpeaker.id)) {
+                    newParticipantArr.add(participant)
+                }
+                participantListArr.add(newParticipantArr)
+            } else {
+                val participant = participants.next()
+                if (!(activeSpeaker != null && participant.id == activeSpeaker.id)) {
+                    participantList.add(participant)
+                }
+            }
+        }
+        return participantListArr
+    }
+
 
     fun addParticipantChangeListener(listener: ParticipantChangeListener) {
         participantChangeListenerList.add(listener)
         listener.onChangeParticipant(getParticipantList())
         listener.onPresenterChanged(screenShare)
+        listener.onSpeakerChanged(null,null)
     }
 
     fun removeParticipantChangeListener(listener: ParticipantChangeListener) {

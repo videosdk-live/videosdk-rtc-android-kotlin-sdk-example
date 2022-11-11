@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="0dp"
     android:layout_height="0dp"
     android:layout_rowWeight="1"
@@ -24,7 +23,6 @@
         android:layout_gravity="center"
         android:background="@drawable/circle_shape"
         android:gravity="center"
-        android:text="A"
         android:textAlignment="center"
         android:textAllCaps="true"
         android:textColor="@color/white"
@@ -51,6 +49,15 @@
         android:src="@drawable/ic_mic_off"
         app:tint="@color/white"
         android:layout_margin="8dp" />
+
+        <pl.droidsonroids.gif.GifImageView
+            android:id="@+id/img_participantActiveSpeaker"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_gravity="right"
+            android:layout_margin="8dp"
+            android:src="@drawable/active_speaker"
+            android:visibility="gone" />
 
     <FrameLayout
         android:layout_width="match_parent"
