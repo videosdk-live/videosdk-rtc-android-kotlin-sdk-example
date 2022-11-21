@@ -88,8 +88,9 @@ class NetworkUtils(var context: Context?) {
 
                 override fun onError(anError: ANError) {
                     anError.printStackTrace()
+                    val errorRes = JSONObject(anError.errorBody)
                     Toast.makeText(
-                        context, anError.message,
+                        context, errorRes.getString("error"),
                         Toast.LENGTH_SHORT
                     ).show()
                 }
@@ -107,8 +108,9 @@ class NetworkUtils(var context: Context?) {
 
                 override fun onError(anError: ANError) {
                     anError.printStackTrace()
+                    val errorRes = JSONObject(anError.errorBody)
                     Toast.makeText(
-                        context, anError.message,
+                        context, errorRes.getString("error"),
                         Toast.LENGTH_SHORT
                     ).show()
                 }
