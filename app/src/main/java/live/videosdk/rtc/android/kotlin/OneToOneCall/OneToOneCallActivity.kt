@@ -517,14 +517,14 @@ class OneToOneCallActivity : AppCompatActivity() {
                 val code = error.getInt("code")
                 if (code == errorCodes.getInt("PREV_RECORDING_PROCESSING")) {
                     recordingStatusSnackbar!!.dismiss()
-                    val snackbar = Snackbar.make(
-                        findViewById(R.id.mainLayout), "Please try again after sometime",
-                        Snackbar.LENGTH_LONG
-                    )
-                    HelperClass.setSnackBarStyle(snackbar.view, 0)
-                    snackbar.view.setOnClickListener { snackbar.dismiss() }
-                    snackbar.show()
                 }
+                val snackbar = Snackbar.make(
+                    findViewById(R.id.mainLayout), error.getString("message"),
+                    Snackbar.LENGTH_LONG
+                )
+                HelperClass.setSnackBarStyle(snackbar.view, 0)
+                snackbar.view.setOnClickListener { snackbar.dismiss() }
+                snackbar.show()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
