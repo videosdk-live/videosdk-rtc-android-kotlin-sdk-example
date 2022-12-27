@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
@@ -137,16 +138,28 @@ class CreateOrJoinActivity : AppCompatActivity() {
     }
 
     private fun checkPermissions() {
-        val permissions = arrayOf(
-            Manifest.permission.INTERNET,
-            Manifest.permission.RECORD_AUDIO,
-            Manifest.permission.CAMERA,
-            Manifest.permission.READ_PHONE_STATE
+        val permissionList: MutableList<String> = ArrayList()
+        permissionList.add(Manifest.permission.INTERNET)
+        permissionList.add(Manifest.permission.MODIFY_AUDIO_SETTINGS)
+        permissionList.add(Manifest.permission.RECORD_AUDIO)
+        permissionList.add(Manifest.permission.CAMERA)
+        permissionList.add(Manifest.permission.READ_PHONE_STATE)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) permissionList.add(
+            Manifest.permission.BLUETOOTH_CONNECT
         )
+
+        val permissions = arrayOf<String>()
         val rationale = "Please provide permissions"
         val options =
             Permissions.Options().setRationaleDialogTitle("Info").setSettingsDialogTitle("Warning")
-        Permissions.check(this, permissions, rationale, options, permissionHandler)
+        Permissions.check(
+            this,
+            permissionList.toTypedArray(),
+            rationale,
+            options,
+            permissionHandler
+        )
     }
 
     private fun changeFloatingActionButtonLayout(btn: FloatingActionButton?, enabled: Boolean) {

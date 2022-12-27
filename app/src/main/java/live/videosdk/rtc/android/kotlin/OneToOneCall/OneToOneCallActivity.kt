@@ -49,16 +49,15 @@ import live.videosdk.rtc.android.kotlin.Common.Utils.HelperClass
 import live.videosdk.rtc.android.kotlin.Common.Utils.NetworkUtils
 import live.videosdk.rtc.android.kotlin.R
 import live.videosdk.rtc.android.lib.AppRTCAudioManager
-import live.videosdk.rtc.android.lib.JsonUtils
 import live.videosdk.rtc.android.lib.PeerConnectionUtils
 import live.videosdk.rtc.android.listeners.*
 import live.videosdk.rtc.android.model.PubSubPublishOptions
 import org.json.JSONObject
 import org.webrtc.SurfaceViewRenderer
 import org.webrtc.VideoTrack
-import pl.droidsonroids.gif.GifImageView
 import java.util.*
 import kotlin.math.roundToInt
+
 
 class OneToOneCallActivity : AppCompatActivity() {
     private var meeting: Meeting? = null
@@ -75,8 +74,16 @@ class OneToOneCallActivity : AppCompatActivity() {
     private var participantCard: CardView? = null
     private var micLayout: LinearLayout? = null
     var participants: ArrayList<Participant>? = null
-    private var img_localActiveSpeaker: GifImageView? = null
-    private var img_participantActiveSpeaker: GifImageView? = null
+    private var ivParticipantMicStatus: ImageView? = null
+//    private ImageView ivLocalParticipantMicStatus;
+//    private GifImageView img_localActiveSpeaker, img_participantActiveSpeaker;
+
+    private var ivLocalNetwork: ImageView? = null
+    private var ivParticipantNetwork: ImageView? = null
+    private var ivLocalScreenShareNetwork: ImageView? = null
+    private var popupwindow_obj_local: PopupWindow? = null
+    private var popupwindow_obj: PopupWindow? = null
+
     private var txtLocalParticipantName: TextView? = null
     private var txtParticipantName: TextView? = null
     private var tvName: TextView? = null
@@ -151,8 +158,16 @@ class OneToOneCallActivity : AppCompatActivity() {
         btnWebcam = findViewById(R.id.btnWebcam)
         btnAudioSelection = findViewById(R.id.btnAudioSelection)
         txtMeetingTime = findViewById(R.id.txtMeetingTime)
-        img_localActiveSpeaker = findViewById(R.id.img_localActiveSpeaker)
-        img_participantActiveSpeaker = findViewById(R.id.img_participantActiveSpeaker)
+//        img_localActiveSpeaker = findViewById(R.id.img_localActiveSpeaker)
+//        img_participantActiveSpeaker = findViewById(R.id.img_participantActiveSpeaker)
+
+        ivLocalNetwork = findViewById(R.id.ivLocalNetwork)
+        ivParticipantNetwork = findViewById(R.id.ivParticipantNetwork)
+        ivLocalScreenShareNetwork = findViewById(R.id.ivLocalScreenShareNetwork)
+
+//        ivLocalParticipantMicStatus = findViewById(R.id.ivLocalParticipantMicStatus)
+        ivParticipantMicStatus = findViewById(R.id.ivParticipantMicStatus)
+
         token = intent.getStringExtra("token")
         val meetingId = intent.getStringExtra("meetingId")
         micEnabled = intent.getBooleanExtra("micEnabled", true)
@@ -170,10 +185,23 @@ class OneToOneCallActivity : AppCompatActivity() {
         // pass the token generated from api server
         VideoSDK.config(token)
 
+        val customTracks: MutableMap<String, CustomStreamTrack> = HashMap()
+
+        val videoCustomTrack = VideoSDK.createCameraVideoTrack(
+            "h720p_w960p",
+            "front",
+            CustomStreamTrack.VideoMode.TEXT,
+            this
+        )
+        customTracks["video"] = videoCustomTrack
+
+        val audioCustomTrack = VideoSDK.createAudioTrack("high_quality", this)
+        customTracks["mic"] = audioCustomTrack
+
         // create a new meeting instance
         meeting = VideoSDK.initMeeting(
             this@OneToOneCallActivity, meetingId, localParticipantName,
-            false, false, null, null
+            false, false, null, customTracks
         )
         meeting!!.addEventListener(meetingEventListener)
 
@@ -193,7 +221,7 @@ class OneToOneCallActivity : AppCompatActivity() {
         }
         btnAudioSelection!!.setOnClickListener { showAudioInputDialog() }
 
-        findViewById<Button>(R.id.btnStopScreenShare).setOnClickListener(View.OnClickListener {
+        findViewById<Button>(R.id.btnStopScreenShare).setOnClickListener({
             if (localScreenShare) {
                 meeting!!.disableScreenShare()
             }
@@ -205,6 +233,7 @@ class OneToOneCallActivity : AppCompatActivity() {
         )
         HelperClass.setSnackBarStyle(recordingStatusSnackbar!!.view, 0)
         recordingStatusSnackbar!!.isGestureInsetBottomIgnored = true
+
         (findViewById<View>(R.id.participants_frameLayout) as FrameLayout).setOnTouchListener(object :
             OnTouchListener {
             override fun onTouch(v: View, event: MotionEvent): Boolean {
@@ -306,6 +335,56 @@ class OneToOneCallActivity : AppCompatActivity() {
                 return true
             }
         })
+
+        ivLocalNetwork!!.setOnClickListener {
+            popupwindow_obj_local = HelperClass().callStatsPopupDisplay(
+                meeting!!.localParticipant,
+                ivLocalNetwork!!,
+                this@OneToOneCallActivity,
+                false
+            )
+            if (getAllParticipants().size == 0) {
+                if (screenshareEnabled) popupwindow_obj_local!!.showAsDropDown(
+                    ivLocalNetwork,
+                    100,
+                    -380
+                ) else popupwindow_obj_local!!.showAsDropDown(ivLocalNetwork, -350, -85)
+            } else {
+                if (screenshareEnabled) {
+                    val participantList = getAllParticipants()
+                    val participant = participantList[0]
+                    popupwindow_obj_local = HelperClass().callStatsPopupDisplay(
+                        participant,
+                        ivLocalNetwork!!,
+                        this@OneToOneCallActivity,
+                        false
+                    )
+                }
+                popupwindow_obj_local!!.showAsDropDown(ivLocalNetwork, 100, -380)
+            }
+        }
+
+        ivParticipantNetwork!!.setOnClickListener {
+            val participantList = getAllParticipants()
+            val participant = participantList[0]
+            popupwindow_obj = HelperClass().callStatsPopupDisplay(
+                participant,
+                ivParticipantNetwork!!,
+                this@OneToOneCallActivity,
+                screenshareEnabled
+            )
+            popupwindow_obj!!.showAsDropDown(ivParticipantNetwork, -350, -85)
+        }
+
+        ivLocalScreenShareNetwork!!.setOnClickListener {
+            popupwindow_obj = HelperClass().callStatsPopupDisplay(
+                meeting!!.localParticipant,
+                ivLocalScreenShareNetwork!!,
+                this@OneToOneCallActivity,
+                true
+            )
+            popupwindow_obj!!.showAsDropDown(ivLocalScreenShareNetwork, -350, -85)
+        }
     }
 
     private fun toggleMicIcon(micEnabled: Boolean) {
@@ -452,6 +531,8 @@ class OneToOneCallActivity : AppCompatActivity() {
                 txtParticipantName!!.text = participant.displayName.substring(0, 1)
                 participantName = participant.displayName
                 tvName!!.text = participantName
+                if (popupwindow_obj_local != null && popupwindow_obj_local!!.isShowing)
+                    popupwindow_obj_local!!.dismiss()
                 Toast.makeText(
                     this@OneToOneCallActivity, participant.displayName + " joined",
                     Toast.LENGTH_SHORT
@@ -475,6 +556,10 @@ class OneToOneCallActivity : AppCompatActivity() {
                     screenshareTrack!!.addSink(svrParticipant)
                     svrParticipant!!.visibility = View.VISIBLE
                 }
+                if (popupwindow_obj != null && popupwindow_obj!!.isShowing)
+                    popupwindow_obj!!.dismiss()
+                if (popupwindow_obj_local != null && popupwindow_obj_local!!.isShowing)
+                    popupwindow_obj_local!!.dismiss()
                 Toast.makeText(
                     this@OneToOneCallActivity, participant.displayName + " left",
                     Toast.LENGTH_SHORT
@@ -531,18 +616,18 @@ class OneToOneCallActivity : AppCompatActivity() {
         }
 
         override fun onSpeakerChanged(participantId: String) {
-            if (!HelperClass().isNullOrEmpty(participantId)) {
-                if ((participantId == meeting!!.localParticipant.id)) {
-                    img_localActiveSpeaker!!.visibility = View.VISIBLE
-                    img_participantActiveSpeaker!!.visibility = View.GONE
-                } else {
-                    img_participantActiveSpeaker!!.visibility = View.VISIBLE
-                    img_localActiveSpeaker!!.visibility = View.GONE
-                }
-            } else {
-                img_participantActiveSpeaker!!.visibility = View.GONE
-                img_localActiveSpeaker!!.visibility = View.GONE
-            }
+//            if (!HelperClass().isNullOrEmpty(participantId)) {
+//                if ((participantId == meeting!!.localParticipant.id)) {
+//                    img_localActiveSpeaker!!.visibility = View.VISIBLE
+//                    img_participantActiveSpeaker!!.visibility = View.GONE
+//                } else {
+//                    img_participantActiveSpeaker!!.visibility = View.VISIBLE
+//                    img_localActiveSpeaker!!.visibility = View.GONE
+//                }
+//            } else {
+//                img_participantActiveSpeaker!!.visibility = View.GONE
+//                img_localActiveSpeaker!!.visibility = View.GONE
+//            }
         }
 
         override fun onMeetingStateChanged(state: String) {
@@ -592,9 +677,9 @@ class OneToOneCallActivity : AppCompatActivity() {
         txtLocalParticipantName!!.textSize = 24f
         txtLocalParticipantName!!.gravity = Gravity.CENTER
         tvLocalParticipantName!!.visibility = View.GONE
-        val layoutParams = FrameLayout.LayoutParams(50, 50, Gravity.RIGHT)
-        layoutParams.setMargins(0, 12, 12, 0)
-        img_localActiveSpeaker!!.layoutParams = layoutParams
+//        val layoutParams = FrameLayout.LayoutParams(50, 50, Gravity.RIGHT)
+//        layoutParams.setMargins(0, 12, 12, 0)
+//        img_localActiveSpeaker!!.layoutParams = layoutParams
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             txtLocalParticipantName!!.foregroundGravity = Gravity.CENTER
         }
@@ -614,9 +699,9 @@ class OneToOneCallActivity : AppCompatActivity() {
         txtLocalParticipantName!!.textSize = 40f
         txtLocalParticipantName!!.gravity = Gravity.CENTER
         tvLocalParticipantName!!.visibility = View.VISIBLE
-        val layoutParams = FrameLayout.LayoutParams(75, 75, Gravity.RIGHT)
-        layoutParams.setMargins(0, 30, 30, 0)
-        img_localActiveSpeaker!!.layoutParams = layoutParams
+//        val layoutParams = FrameLayout.LayoutParams(75, 75, Gravity.RIGHT)
+//        layoutParams.setMargins(0, 30, 30, 0)
+//        img_localActiveSpeaker!!.layoutParams = layoutParams
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             txtLocalParticipantName!!.foregroundGravity = Gravity.CENTER
         }
@@ -672,6 +757,11 @@ class OneToOneCallActivity : AppCompatActivity() {
         if (participantName != null) txtLocalParticipantName!!.text =
             participantName!!.substring(0, 1)
         tvName!!.text = "$participantName is presenting"
+        ivParticipantMicStatus!!.visibility = View.GONE
+        ivParticipantNetwork!!.visibility = View.VISIBLE
+        onTrackChange()
+        checkStream(participant, ivLocalNetwork!!)
+
         onTrackChange()
         screenShareParticipantNameSnackbar = Snackbar.make(
             findViewById(R.id.mainLayout), participant.displayName + " started presenting",
@@ -695,6 +785,13 @@ class OneToOneCallActivity : AppCompatActivity() {
                     txtLocalParticipantName!!.text =
                         meeting!!.localParticipant.displayName.substring(0, 1)
                     tvName!!.text = participantName
+                    ivParticipantMicStatus!!.visibility = View.VISIBLE
+                    checkStream(
+                        participant,
+                        ivParticipantNetwork!!
+                    )
+                    checkStream(meeting!!.localParticipant, ivLocalNetwork!!)
+
                     onTrackChange()
                     screenshareEnabled = false
                     localScreenShare = false
@@ -710,16 +807,28 @@ class OneToOneCallActivity : AppCompatActivity() {
     }
 
     private fun checkPermissions() {
-        val permissions = arrayOf(
-            Manifest.permission.INTERNET,
-            Manifest.permission.RECORD_AUDIO,
-            Manifest.permission.CAMERA,
-            Manifest.permission.READ_PHONE_STATE
+        val permissionList: MutableList<String> = ArrayList()
+        permissionList.add(Manifest.permission.INTERNET)
+        permissionList.add(Manifest.permission.MODIFY_AUDIO_SETTINGS)
+        permissionList.add(Manifest.permission.RECORD_AUDIO)
+        permissionList.add(Manifest.permission.CAMERA)
+        permissionList.add(Manifest.permission.READ_PHONE_STATE)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) permissionList.add(
+            Manifest.permission.BLUETOOTH_CONNECT
         )
+
+        val permissions = arrayOf<String>()
         val rationale = "Please provide permissions"
         val options =
             Permissions.Options().setRationaleDialogTitle("Info").setSettingsDialogTitle("Warning")
-        Permissions.check(this, permissions, rationale, options, permissionHandler)
+        Permissions.check(
+            this,
+            permissionList.toTypedArray(),
+            rationale,
+            options,
+            permissionHandler
+        )
     }
 
     private fun setAudioDeviceListeners() {
@@ -739,11 +848,7 @@ class OneToOneCallActivity : AppCompatActivity() {
         if (micEnabled) {
             meeting!!.muteMic()
         } else {
-            val noiseConfig = JSONObject()
-            JsonUtils.jsonPut(noiseConfig, "acousticEchoCancellation", true)
-            JsonUtils.jsonPut(noiseConfig, "noiseSuppression", true)
-            JsonUtils.jsonPut(noiseConfig, "autoGainControl", true)
-            val audioCustomTrack = VideoSDK.createAudioTrack("high_quality", noiseConfig, this)
+            val audioCustomTrack = VideoSDK.createAudioTrack("high_quality", this)
             meeting!!.unmuteMic(audioCustomTrack)
         }
         micEnabled = !micEnabled
@@ -895,17 +1000,9 @@ class OneToOneCallActivity : AppCompatActivity() {
                             AppRTCAudioManager.AudioDevice.SPEAKER_PHONE
                         "Earpiece" -> audioDevice = AppRTCAudioManager.AudioDevice.EARPIECE
                     }
-                    val noiseConfig: JSONObject = JSONObject()
-                    JsonUtils.jsonPut(
-                        noiseConfig,
-                        "acousticEchoCancellation",
-                        true
-                    )
-                    JsonUtils.jsonPut(noiseConfig, "noiseSuppression", true)
-                    JsonUtils.jsonPut(noiseConfig, "autoGainControl", true)
                     meeting!!.changeMic(
                         audioDevice,
-                        VideoSDK.createAudioTrack("high_quality", noiseConfig, this)
+                        VideoSDK.createAudioTrack("high_quality", this)
                     )
                 }
         val alertDialog = materialAlertDialogBuilder.create()
@@ -1061,10 +1158,10 @@ class OneToOneCallActivity : AppCompatActivity() {
                     svrLocal!!.visibility = View.VISIBLE
                 }
             }
-            if(localScreenShare) {
+            if (localScreenShare) {
                 participantCard!!.visibility = View.GONE
                 findViewById<View>(R.id.localScreenShareView).visibility = View.VISIBLE
-            }else{
+            } else {
                 screenshareTrack!!.addSink(svrParticipant)
                 svrParticipant!!.visibility = View.VISIBLE
             }
@@ -1072,13 +1169,13 @@ class OneToOneCallActivity : AppCompatActivity() {
             if (participantTrack != null) {
                 svrParticipant!!.visibility = View.VISIBLE
                 participantTrack!!.addSink(svrParticipant)
-                (img_participantActiveSpeaker as View).bringToFront()
+//                (img_participantActiveSpeaker as View).bringToFront()
             }
             if (localTrack != null) {
                 svrLocal!!.visibility = View.VISIBLE
                 svrLocal!!.setZOrderMediaOverlay(true)
                 localTrack!!.addSink(svrLocal)
-                (img_localActiveSpeaker as View?)!!.bringToFront()
+//                (img_localActiveSpeaker as View?)!!.bringToFront()
                 (localCard as View?)!!.bringToFront()
             }
         }
@@ -1118,6 +1215,23 @@ class OneToOneCallActivity : AppCompatActivity() {
         }
     }
 
+    private fun checkStream(participant: Participant, imageView: ImageView) {
+        if (participant.streams.isNotEmpty()) {
+            for (stream: Stream in participant.streams.values) {
+                if (stream.kind.equals("video", ignoreCase = true) || stream.kind.equals(
+                        "audio",
+                        ignoreCase = true
+                    )
+                ) {
+                    imageView.visibility = View.VISIBLE
+                    break
+                } else {
+                    imageView.visibility = View.GONE
+                }
+            }
+        } else imageView.visibility = View.GONE
+    }
+
     private val participantEventListener: ParticipantEventListener =
         object : ParticipantEventListener() {
             override fun onStreamEnabled(stream: Stream) {
@@ -1127,11 +1241,23 @@ class OneToOneCallActivity : AppCompatActivity() {
                         participantTrack = track
                         onTrackChange()
                         setQuality("high")
+                        val participantList = getAllParticipants()
+                        val participant = participantList[0]
+                        if (screenshareEnabled) {
+                            checkStream(participant, ivLocalNetwork!!)
+                        } else checkStream(participant, ivParticipantNetwork!!)
                     }
                 }
                 if (stream.kind.equals("audio", ignoreCase = true)) {
                     if (meeting!!.participants.size >= 2) {
                         stream.pause()
+                    } else {
+                        ivParticipantMicStatus!!.setImageResource(R.drawable.ic_audio_on)
+                        val participantList = getAllParticipants()
+                        val participant = participantList[0]
+                        if (screenshareEnabled) {
+                            checkStream(participant, ivLocalNetwork!!)
+                        } else checkStream(participant, ivParticipantNetwork!!)
                     }
                 }
             }
@@ -1142,11 +1268,23 @@ class OneToOneCallActivity : AppCompatActivity() {
                         val track: VideoTrack = stream.track as VideoTrack
                         participantTrack = null
                         removeTrack(track, false)
+                        val participantList = getAllParticipants()
+                        val participant = participantList[0]
+                        if (screenshareEnabled) {
+                            checkStream(participant, ivLocalNetwork!!)
+                        } else checkStream(participant, ivParticipantNetwork!!)
                     }
                 }
                 if (stream.kind.equals("audio", ignoreCase = true)) {
                     if (meeting!!.participants.size >= 2) {
                         stream.pause()
+                    } else {
+                        ivParticipantMicStatus!!.setImageResource(R.drawable.ic_audio_off)
+                        val participantList = getAllParticipants()
+                        val participant = participantList[0]
+                        if (screenshareEnabled) {
+                            checkStream(participant, ivLocalNetwork!!)
+                        } else checkStream(participant, ivParticipantNetwork!!)
                     }
                 }
             }
@@ -1167,8 +1305,35 @@ class OneToOneCallActivity : AppCompatActivity() {
                     val track = stream.track as VideoTrack
                     localTrack = track
                     onTrackChange()
+                    if (screenshareEnabled) {
+                        if (getAllParticipants().size == 0) {
+                            checkStream(
+                                meeting!!.localParticipant,
+                                ivLocalNetwork!!
+                            )
+                        }
+                    } else checkStream(
+                        meeting!!.localParticipant,
+                        ivLocalNetwork!!
+                    )
+
                 } else if (stream.kind.equals("audio", ignoreCase = true)) {
+//                    ivLocalParticipantMicStatus!!.setImageResource(R.drawable.ic_audio_on);
                     toggleMicIcon(true)
+
+//                    ivLocalParticipantMicStatus.setImageResource(R.drawable.ic_audio_on);
+                    if (screenshareEnabled) {
+                        if (getAllParticipants().size == 0) {
+                            checkStream(
+                                meeting!!.localParticipant,
+                                ivLocalNetwork!!
+                            )
+                        }
+                    } else checkStream(
+                        meeting!!.localParticipant,
+                        ivLocalNetwork!!
+                    )
+
                 } else if (stream.kind.equals("share", ignoreCase = true)) {
                     // display share video
                     val videoTrack = stream.track as VideoTrack
@@ -1184,6 +1349,31 @@ class OneToOneCallActivity : AppCompatActivity() {
                     screenShareParticipantNameSnackbar!!.isGestureInsetBottomIgnored = true
                     screenShareParticipantNameSnackbar!!.view.setOnClickListener { screenShareParticipantNameSnackbar!!.dismiss() }
                     screenShareParticipantNameSnackbar!!.show()
+
+                    ivParticipantMicStatus!!.visibility = View.GONE
+                    if (screenshareEnabled) {
+                        if (getAllParticipants().size == 0) {
+                            checkStream(
+                                meeting!!.localParticipant,
+                                ivLocalNetwork!!
+                            )
+                        } else {
+                            val participantList = getAllParticipants()
+                            val participant = participantList[0]
+                            checkStream(participant, ivLocalNetwork!!)
+                        }
+                    } else {
+                        if (getAllParticipants().size == 0) checkStream(
+                            meeting!!.localParticipant,
+                            ivLocalNetwork!!
+                        ) else {
+                            val participantList = getAllParticipants()
+                            val participant = participantList[0]
+                            checkStream(participant, ivLocalNetwork!!)
+                        }
+                    }
+
+
                     onTrackChange()
                     //
                     localScreenShare = true
@@ -1197,8 +1387,33 @@ class OneToOneCallActivity : AppCompatActivity() {
                     localTrack = null
                     removeTrack(track, true)
                     toggleWebcamIcon(false)
+                    if (screenshareEnabled) {
+                        if (getAllParticipants().size == 0) {
+                            checkStream(
+                                meeting!!.localParticipant,
+                                ivLocalNetwork!!
+                            )
+                        }
+                    } else checkStream(
+                        meeting!!.localParticipant,
+                        ivLocalNetwork!!
+                    )
+
                 } else if (stream.kind.equals("audio", ignoreCase = true)) {
+//                    ivLocalParticipantMicStatus!!.setImageResource(R.drawable.ic_audio_off);
                     toggleMicIcon(false)
+                    if (screenshareEnabled) {
+                        if (getAllParticipants().size == 0) {
+                            checkStream(
+                                meeting!!.localParticipant,
+                                ivLocalNetwork!!
+                            )
+                        }
+                    } else checkStream(
+                        meeting!!.localParticipant,
+                        ivLocalNetwork!!
+                    )
+
                 } else if (stream.kind.equals("share", ignoreCase = true)) {
                     val track: VideoTrack = stream.track as VideoTrack
                     screenshareTrack = null
@@ -1210,6 +1425,16 @@ class OneToOneCallActivity : AppCompatActivity() {
                     txtLocalParticipantName!!.text =
                         meeting!!.localParticipant.displayName.substring(0, 1)
                     tvName!!.visibility = View.VISIBLE
+                    ivParticipantMicStatus!!.visibility = View.VISIBLE
+                    checkStream(
+                        meeting!!.localParticipant,
+                        ivLocalNetwork!!
+                    )
+                    if (getAllParticipants().size > 0) {
+                        val participantList = getAllParticipants()
+                        val participant = participantList[0]
+                        checkStream(participant, ivParticipantNetwork!!)
+                    }
                     onTrackChange()
                     //
                     localScreenShare = false
