@@ -9,9 +9,8 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
-        maven { url 'https://jitpack.io' }
-        maven { url "https://maven.aliyun.com/repository/jcenter" }
         mavenCentral()
+        maven { url "https://maven.aliyun.com/repository/jcenter" }
     }
 }
 rootProject.name = "videosdk-rtc-android-kotlin-sdk-example"
