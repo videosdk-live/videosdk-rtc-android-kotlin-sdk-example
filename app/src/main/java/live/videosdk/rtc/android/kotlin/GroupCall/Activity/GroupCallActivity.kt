@@ -3,11 +3,8 @@ package live.videosdk.rtc.android.kotlin.GroupCall.Activity
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.*
-import android.graphics.Bitmap
 import android.graphics.Color
-import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
-import android.graphics.drawable.Drawable
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
@@ -50,7 +47,6 @@ import live.videosdk.rtc.android.kotlin.GroupCall.Adapter.ParticipantViewAdapter
 import live.videosdk.rtc.android.kotlin.GroupCall.Utils.ParticipantState
 import live.videosdk.rtc.android.kotlin.R
 import live.videosdk.rtc.android.lib.AppRTCAudioManager.AudioDevice
-import live.videosdk.rtc.android.lib.JsonUtils
 import live.videosdk.rtc.android.lib.PeerConnectionUtils
 import live.videosdk.rtc.android.listeners.*
 import live.videosdk.rtc.android.model.PubSubPublishOptions
@@ -148,10 +144,23 @@ class GroupCallActivity : AppCompatActivity() {
         // pass the token generated from api server
         VideoSDK.config(token)
 
+        val customTracks: MutableMap<String, CustomStreamTrack> = HashMap()
+
+        val videoCustomTrack = VideoSDK.createCameraVideoTrack(
+            "h720p_w960p",
+            "front",
+            CustomStreamTrack.VideoMode.TEXT,
+            this
+        )
+        customTracks["video"] = videoCustomTrack
+
+        val audioCustomTrack = VideoSDK.createAudioTrack("high_quality", this)
+        customTracks["mic"] = audioCustomTrack
+
         // create a new meeting instance
         meeting = VideoSDK.initMeeting(
             this@GroupCallActivity, meetingId, localParticipantName,
-            micEnabled, webcamEnabled, null, null
+            micEnabled, webcamEnabled, null, customTracks
         )
 
         //
@@ -214,12 +223,12 @@ class GroupCallActivity : AppCompatActivity() {
                                         params
                                     shareLayout!!.layoutParams = LinearLayout.LayoutParams(
                                         ViewGroup.LayoutParams.MATCH_PARENT,
-                                        dpToPx(420, this@GroupCallActivity)
+                                        HelperClass().dpToPx(420, this@GroupCallActivity)
                                     )
                                     (findViewById<View>(R.id.localScreenShareView) as LinearLayout).layoutParams =
                                         LinearLayout.LayoutParams(
                                             ViewGroup.LayoutParams.MATCH_PARENT,
-                                            dpToPx(420, this@GroupCallActivity)
+                                            HelperClass().dpToPx(420, this@GroupCallActivity)
                                         )
                                     val toolbarAnimation = TranslateAnimation(
                                         0F,
@@ -258,12 +267,12 @@ class GroupCallActivity : AppCompatActivity() {
                                     }
                                     shareLayout!!.layoutParams = LinearLayout.LayoutParams(
                                         ViewGroup.LayoutParams.MATCH_PARENT,
-                                        dpToPx(500, this@GroupCallActivity)
+                                        HelperClass().dpToPx(500, this@GroupCallActivity)
                                     )
                                     (findViewById<View>(R.id.localScreenShareView) as LinearLayout).layoutParams =
                                         LinearLayout.LayoutParams(
                                             ViewGroup.LayoutParams.MATCH_PARENT,
-                                            dpToPx(500, this@GroupCallActivity)
+                                            HelperClass().dpToPx(500, this@GroupCallActivity)
                                         )
                                     val toolbarAnimation = TranslateAnimation(
                                         0F,
@@ -306,15 +315,40 @@ class GroupCallActivity : AppCompatActivity() {
             }
         }
         findViewById<View>(R.id.participants_Layout).setOnTouchListener(onTouchListener)
+
+        findViewById<View>(R.id.ivParticipantScreenShareNetwork).setOnClickListener {
+            val participantList = getAllParticipants()
+            val participant = participantList[0]
+            val popupwindow_obj: PopupWindow? = HelperClass().callStatsPopupDisplay(
+                participant,
+                findViewById(R.id.ivParticipantScreenShareNetwork),
+                this@GroupCallActivity,
+                true
+            )
+            popupwindow_obj!!.showAsDropDown(
+                findViewById(R.id.ivParticipantScreenShareNetwork),
+                -350,
+                -85
+            )
+        }
+
+        findViewById<View>(R.id.ivLocalScreenShareNetwork).setOnClickListener {
+            val popupwindow_obj: PopupWindow? = HelperClass().callStatsPopupDisplay(
+                meeting!!.getLocalParticipant(),
+                findViewById(R.id.ivLocalScreenShareNetwork),
+                this@GroupCallActivity,
+                true
+            )
+            popupwindow_obj!!.showAsDropDown(
+                findViewById(R.id.ivLocalScreenShareNetwork),
+                -350,
+                -85
+            )
+        }
     }
 
     fun getTouchListener(): OnTouchListener? {
         return onTouchListener
-    }
-
-    fun dpToPx(dp: Int, context: Context): Int {
-        val density = context.resources.displayMetrics.density
-        return (dp.toFloat() * density).roundToInt()
     }
 
     private fun toggleMicIcon() {
@@ -620,16 +654,28 @@ class GroupCallActivity : AppCompatActivity() {
     }
 
     private fun checkPermissions() {
-        val permissions = arrayOf(
-            Manifest.permission.INTERNET,
-            Manifest.permission.RECORD_AUDIO,
-            Manifest.permission.CAMERA,
-            Manifest.permission.READ_PHONE_STATE
+        val permissionList: MutableList<String> = ArrayList()
+        permissionList.add(Manifest.permission.INTERNET)
+        permissionList.add(Manifest.permission.MODIFY_AUDIO_SETTINGS)
+        permissionList.add(Manifest.permission.RECORD_AUDIO)
+        permissionList.add(Manifest.permission.CAMERA)
+        permissionList.add(Manifest.permission.READ_PHONE_STATE)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) permissionList.add(
+            Manifest.permission.BLUETOOTH_CONNECT
         )
+
+        val permissions = arrayOf<String>()
         val rationale = "Please provide permissions"
         val options =
             Permissions.Options().setRationaleDialogTitle("Info").setSettingsDialogTitle("Warning")
-        Permissions.check(this, permissions, rationale, options, permissionHandler)
+        Permissions.check(
+            this,
+            permissionList.toTypedArray(),
+            rationale,
+            options,
+            permissionHandler
+        )
     }
 
     private fun setAudioDeviceListeners() {
@@ -649,11 +695,7 @@ class GroupCallActivity : AppCompatActivity() {
         if (micEnabled) {
             meeting!!.muteMic()
         } else {
-            val noiseConfig = JSONObject()
-            JsonUtils.jsonPut(noiseConfig, "acousticEchoCancellation", true)
-            JsonUtils.jsonPut(noiseConfig, "noiseSuppression", true)
-            JsonUtils.jsonPut(noiseConfig, "autoGainControl", true)
-            val audioCustomTrack = VideoSDK.createAudioTrack("high_quality", noiseConfig, this)
+            val audioCustomTrack = VideoSDK.createAudioTrack("high_quality", this)
             meeting!!.unmuteMic(audioCustomTrack)
         }
     }
@@ -734,6 +776,7 @@ class GroupCallActivity : AppCompatActivity() {
         (findViewById<View>(R.id.tvScreenShareParticipantName) as TextView).text =
             participant.displayName + " is presenting"
         findViewById<View>(R.id.tvScreenShareParticipantName).visibility = VISIBLE
+        findViewById<View>(R.id.ivParticipantScreenShareNetwork).visibility = VISIBLE
 
         // display share video
         shareLayout!!.visibility = VISIBLE
@@ -763,6 +806,9 @@ class GroupCallActivity : AppCompatActivity() {
                     shareLayout!!.visibility = GONE
                     findViewById<View>(R.id.tvScreenShareParticipantName).visibility =
                         GONE
+                    findViewById<View>(R.id.ivParticipantScreenShareNetwork).visibility =
+                        GONE
+
                     localScreenShare = false
                 }
             }
@@ -863,17 +909,9 @@ class GroupCallActivity : AppCompatActivity() {
                         "Speaker phone" -> audioDevice = AudioDevice.SPEAKER_PHONE
                         "Earpiece" -> audioDevice = AudioDevice.EARPIECE
                     }
-                    val noiseConfig = JSONObject()
-                    JsonUtils.jsonPut(
-                        noiseConfig,
-                        "acousticEchoCancellation",
-                        true
-                    )
-                    JsonUtils.jsonPut(noiseConfig, "noiseSuppression", true)
-                    JsonUtils.jsonPut(noiseConfig, "autoGainControl", true)
                     meeting!!.changeMic(
                         audioDevice,
-                        VideoSDK.createAudioTrack("high_quality", noiseConfig, this)
+                        VideoSDK.createAudioTrack("high_quality", this)
                     )
                 }
         val alertDialog = materialAlertDialogBuilder.create()
