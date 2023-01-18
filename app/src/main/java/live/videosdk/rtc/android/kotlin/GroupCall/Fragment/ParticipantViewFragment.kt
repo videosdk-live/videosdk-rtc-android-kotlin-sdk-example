@@ -18,32 +18,30 @@ import com.google.android.material.tabs.TabLayoutMediator
 import live.videosdk.rtc.android.Meeting
 import live.videosdk.rtc.android.Participant
 import live.videosdk.rtc.android.Stream
+import live.videosdk.rtc.android.VideoView
 import live.videosdk.rtc.android.kotlin.Common.Listener.ParticipantStreamChangeListener
 import live.videosdk.rtc.android.kotlin.Common.Utils.HelperClass
 import live.videosdk.rtc.android.kotlin.GroupCall.Activity.GroupCallActivity
 import live.videosdk.rtc.android.kotlin.GroupCall.Listener.ParticipantChangeListener
 import live.videosdk.rtc.android.kotlin.GroupCall.Utils.ParticipantState
 import live.videosdk.rtc.android.kotlin.R
-import live.videosdk.rtc.android.lib.PeerConnectionUtils
 import live.videosdk.rtc.android.listeners.ParticipantEventListener
-import org.webrtc.EglBase
-import org.webrtc.SurfaceViewRenderer
 import org.webrtc.VideoTrack
+import java.util.concurrent.ConcurrentHashMap
 
 
 class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragment() {
     var participantGridLayout: GridLayout? = null
     var participantChangeListener: ParticipantChangeListener? = null
     var participantState: ParticipantState? = null
-    var eglContext: EglBase.Context? = null
     private var participants: List<Participant>? = null
     private var participantListArr: List<List<Participant>>? = null
     var tabLayoutMediator: TabLayoutMediator? = null
     var viewPager2: ViewPager2? = null
     var tabLayout: TabLayout? = null
-    private var screenShareFlag = false
-
     private var popupwindow_obj: PopupWindow? = null
+    private var participantsInGrid: MutableMap<String, Participant>? = null
+    private val participantsView: MutableMap<String, View> = HashMap()
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -54,7 +52,6 @@ class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragme
         participantGridLayout = view.findViewById(R.id.participantGridLayout)
         viewPager2 = requireActivity().findViewById(R.id.view_pager_video_grid)
         tabLayout = requireActivity().findViewById(R.id.tab_layout_dots)
-        eglContext = PeerConnectionUtils.getEglContext()
         return view
     }
 
@@ -68,9 +65,8 @@ class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragme
             }
 
             override fun onPresenterChanged(screenShare: Boolean) {
-                screenShareFlag = screenShare
-                updateGridLayout()
                 showInGUI(null)
+                updateGridLayout(screenShare)
             }
 
             override fun onSpeakerChanged(
@@ -94,7 +90,6 @@ class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragme
         if (position < participantList!!.size) {
             participants = participantList[position]
             if (popupwindow_obj != null && popupwindow_obj!!.isShowing) popupwindow_obj!!.dismiss()
-            updateGridLayout()
             showInGUI(activeSpeaker)
             tabLayoutMediator = TabLayoutMediator(
                 tabLayout!!, viewPager2!!, true
@@ -108,7 +103,7 @@ class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragme
                 tabLayoutMediator!!.detach()
             }
             tabLayoutMediator!!.attach()
-            if (participantList!!.size == 1) {
+            if (participantList.size == 1) {
                 tabLayout!!.visibility = View.GONE
             } else {
                 tabLayout!!.visibility = View.VISIBLE
@@ -156,99 +151,114 @@ class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragme
     }
 
     // Call where View ready.
+    @SuppressLint("MissingInflatedId")
     private fun showInGUI(activeSpeaker: Participant?) {
         for (i in participants!!.indices) {
             val participant = participants!![i]
-            val participantView = LayoutInflater.from(context)
-                .inflate(R.layout.item_participant, participantGridLayout, false)
-            val participantCard = participantView.findViewById<CardView>(R.id.ParticipantCard)
-            val ivMicStatus = participantView.findViewById<ImageView>(R.id.ivMicStatus)
-            //            GifImageView img_participantActiveSpeaker = participantView.findViewById(R.id.img_participantActiveSpeaker);
-            if (activeSpeaker == null) {
-                participantCard.foreground = null
-//                img_participantActiveSpeaker.setVisibility(View.GONE);
-//                ivMicStatus.setVisibility(View.VISIBLE);
-            } else {
-                if (participant.id == activeSpeaker.id) {
-                    participantCard.foreground = requireContext().getDrawable(R.drawable.layout_bg)
-//                    ivMicStatus.setVisibility(View.GONE);
-//                    img_participantActiveSpeaker.setVisibility(View.VISIBLE);
-                } else {
-                    participantCard.foreground = null
-//                    img_participantActiveSpeaker.setVisibility(View.GONE);
-//                    ivMicStatus.setVisibility(View.VISIBLE);
-                }
-            }
-            var participantStreamChangeListener: ParticipantStreamChangeListener
-            val ivNetwork = participantView.findViewById<ImageView>(R.id.ivNetwork)
-            participantStreamChangeListener = object : ParticipantStreamChangeListener {
-                override fun onStreamChanged() {
-                    if (participant.streams.isEmpty()) {
-                        ivNetwork.visibility = View.GONE
-                    } else {
-                        ivNetwork.visibility = View.VISIBLE
+            if (participantsInGrid != null) {
+                for ((_, key) in participantsInGrid!!) {
+                if (!participants!!.contains(key)) {
+                        participantsInGrid!!.remove(key.id)
+                        val participantVideoView =
+                            participantsView[key.id]!!.findViewById<VideoView>(R.id.participantVideoView)
+                    participantVideoView.releaseSurfaceViewRenderer()
+                        participantGridLayout!!.removeView(participantsView[key.id])
+                        participantsView.remove(key.id)
+                        updateGridLayout(false)
                     }
                 }
             }
-            ivNetwork.setOnClickListener {
-                popupwindow_obj = HelperClass().callStatsPopupDisplay(
-                    participant, ivNetwork,
-                    requireContext(), false
-                )
-                popupwindow_obj!!.showAsDropDown(ivNetwork, -350, -85)
-            }
-            val tvName = participantView.findViewById<TextView>(R.id.tvName)
-            val txtParticipantName = participantView.findViewById<TextView>(R.id.txtParticipantName)
-            val svrParticipant =
-                participantView.findViewById<SurfaceViewRenderer>(R.id.svrParticipantView)
-            try {
-                svrParticipant.init(eglContext, null)
-            } catch (e: Exception) {
-                Log.e("Error", "showInGUI: " + e.message)
-            }
-            if (participant.id == meeting!!.localParticipant.id) {
-                tvName.text = "You"
-            } else {
-                tvName.text = participant.displayName
-            }
-            txtParticipantName.text = participant.displayName.substring(0, 1)
-            for ((_, stream) in participant.streams) {
-                if (stream.kind.equals("video", ignoreCase = true)) {
-                    svrParticipant.visibility = View.VISIBLE
-                    val videoTrack = stream.track as VideoTrack
-                    videoTrack.addSink(svrParticipant)
-                    participantStreamChangeListener.onStreamChanged()
-                    break
-                } else if (stream.kind.equals("audio", ignoreCase = true)) {
-                    participantStreamChangeListener.onStreamChanged()
-                    ivMicStatus.setImageResource(R.drawable.ic_audio_on)
+            if (participantsInGrid == null || !participantsInGrid!!.containsKey(participant.id)) {
+                if (participantsInGrid == null) participantsInGrid = ConcurrentHashMap()
+                participantsInGrid!![participant.id] = participant
+                val participantView: View = LayoutInflater.from(context)
+                    .inflate(R.layout.item_participant, participantGridLayout, false)
+                participantsView[participant.id] = participantView
+                val participantCard = participantView.findViewById<CardView>(R.id.ParticipantCard)
+                val ivMicStatus = participantView.findViewById<ImageView>(R.id.ivMicStatus)
+                //            GifImageView img_participantActiveSpeaker = participantView.findViewById(R.id.img_participantActiveSpeaker);
+                if (activeSpeaker == null) {
+                    participantCard.foreground = null
+                    //                img_participantActiveSpeaker.setVisibility(View.GONE);
+//                ivMicStatus.setVisibility(View.VISIBLE);
+                } else {
+                    if (participant.id == activeSpeaker.id) {
+                        participantCard.foreground = requireContext().getDrawable(R.drawable.layout_bg)
+                        //                    ivMicStatus.setVisibility(View.GONE);
+//                    img_participantActiveSpeaker.setVisibility(View.VISIBLE);
+                    } else {
+                        participantCard.foreground = null
+                        //                    img_participantActiveSpeaker.setVisibility(View.GONE);
+//                    ivMicStatus.setVisibility(View.VISIBLE);
+                    }
                 }
-            }
-            participant.addEventListener(object : ParticipantEventListener() {
-                override fun onStreamEnabled(stream: Stream) {
+                var participantStreamChangeListener: ParticipantStreamChangeListener
+                val ivNetwork = participantView.findViewById<ImageView>(R.id.ivNetwork)
+                participantStreamChangeListener = object : ParticipantStreamChangeListener {
+                    override fun onStreamChanged() {
+                        if (participant.streams.isEmpty()) {
+                            ivNetwork.visibility = View.GONE
+                        } else {
+                            ivNetwork.visibility = View.VISIBLE
+                        }
+                    }
+                }
+                ivNetwork.setOnClickListener {
+                    popupwindow_obj = HelperClass().callStatsPopupDisplay(
+                        participant, ivNetwork,
+                        requireContext(), false
+                    )
+                    popupwindow_obj!!.showAsDropDown(ivNetwork, -350, -85)
+                }
+                val tvName = participantView.findViewById<TextView>(R.id.tvName)
+                val txtParticipantName =
+                    participantView.findViewById<TextView>(R.id.txtParticipantName)
+                val participantVideoView =
+                    participantView.findViewById<VideoView>(R.id.participantVideoView)
+                if (participant.id == meeting!!.localParticipant.id) {
+                    tvName.text = "You"
+                } else {
+                    tvName.text = participant.displayName
+                }
+                txtParticipantName.text = participant.displayName.substring(0, 1)
+                for ((_, stream) in participant.streams) {
                     if (stream.kind.equals("video", ignoreCase = true)) {
-                        svrParticipant.visibility = View.VISIBLE
+                        participantVideoView.visibility = View.VISIBLE
                         val videoTrack = stream.track as VideoTrack
-                        videoTrack.addSink(svrParticipant)
+                        participantVideoView.addTrack(videoTrack)
                         participantStreamChangeListener.onStreamChanged()
+                        break
                     } else if (stream.kind.equals("audio", ignoreCase = true)) {
                         participantStreamChangeListener.onStreamChanged()
                         ivMicStatus.setImageResource(R.drawable.ic_audio_on)
                     }
                 }
-
-                override fun onStreamDisabled(stream: Stream) {
-                    if (stream.kind.equals("video", ignoreCase = true)) {
-                        val track = stream.track as VideoTrack
-                        track?.removeSink(svrParticipant)
-                        svrParticipant.clearImage()
-                        svrParticipant.visibility = View.GONE
-                    } else if (stream.kind.equals("audio", ignoreCase = true)) {
-                        ivMicStatus.setImageResource(R.drawable.ic_audio_off)
+                participant.addEventListener(object : ParticipantEventListener() {
+                    override fun onStreamEnabled(stream: Stream) {
+                        if (stream.kind.equals("video", ignoreCase = true)) {
+                            participantVideoView.visibility = View.VISIBLE
+                            val videoTrack = stream.track as VideoTrack
+                            participantVideoView.addTrack(videoTrack)
+                            participantStreamChangeListener.onStreamChanged()
+                        } else if (stream.kind.equals("audio", ignoreCase = true)) {
+                            participantStreamChangeListener.onStreamChanged()
+                            ivMicStatus.setImageResource(R.drawable.ic_audio_on)
+                        }
                     }
-                }
-            })
-            participantGridLayout!!.addView(participantView)
+
+                    override fun onStreamDisabled(stream: Stream) {
+                        if (stream.kind.equals("video", ignoreCase = true)) {
+                            val track = stream.track as VideoTrack
+                            if (track != null) participantVideoView.removeTrack()
+                            participantVideoView.visibility = View.GONE
+                        } else if (stream.kind.equals("audio", ignoreCase = true)) {
+                            ivMicStatus.setImageResource(R.drawable.ic_audio_off)
+                        }
+                    }
+                })
+                participantGridLayout!!.addView(participantView)
+                updateGridLayout(false)
+            }
         }
     }
 
@@ -283,46 +293,65 @@ class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragme
         }
         for (i in 0 until participantGridLayout!!.childCount) {
             val view = participantGridLayout!!.getChildAt(i)
-            val surfaceViewRenderer =
-                view.findViewById<SurfaceViewRenderer>(R.id.svrParticipantView)
-            if (surfaceViewRenderer != null) {
-                surfaceViewRenderer.clearImage()
-                surfaceViewRenderer.visibility = View.GONE
-                surfaceViewRenderer.release()
+            val videoView = view.findViewById<VideoView>(R.id.participantVideoView)
+            if (videoView != null) {
+                videoView.visibility = View.GONE
+                videoView.releaseSurfaceViewRenderer()
             }
         }
         participantGridLayout!!.removeAllViews()
+        participantsInGrid = null
         super.onDestroy()
     }
 
-    fun updateGridLayout() {
-        for (i in 0 until participantGridLayout!!.childCount) {
-            val view = participantGridLayout!!.getChildAt(i)
-            val surfaceViewRenderer =
-                view.findViewById<SurfaceViewRenderer>(R.id.svrParticipantView)
-            if (surfaceViewRenderer != null) {
-                surfaceViewRenderer.clearImage()
-                surfaceViewRenderer.visibility = View.GONE
-                surfaceViewRenderer.release()
-            }
-        }
-        participantGridLayout!!.removeAllViews()
+    fun updateGridLayout(screenShareFlag: Boolean) {
         if (screenShareFlag) {
-            participantGridLayout!!.columnCount = 2
-            participantGridLayout!!.rowCount = 1
-        } else {
-            if (participants!!.size == 1) {
-                participantGridLayout!!.columnCount = 1
-                participantGridLayout!!.rowCount = 1
-            } else if (participants!!.size == 2) {
-                participantGridLayout!!.columnCount = 1
-                participantGridLayout!!.rowCount = 2
-            } else {
-                participantGridLayout!!.columnCount = 2
-                participantGridLayout!!.rowCount = 2
+            var col = 0
+            var row = 0
+            for (i in 0 until participantGridLayout!!.childCount) {
+                val params =
+                    participantGridLayout!!.getChildAt(i).layoutParams as GridLayout.LayoutParams
+                params.columnSpec = GridLayout.spec(col, 1, 1f)
+                params.rowSpec = GridLayout.spec(row, 1, 1f)
+                if (col + 1 == 2) {
+                    col = 0
+                    row++
+                } else {
+                    col++
+                }
             }
+            participantGridLayout!!.requestLayout()
+        } else {
+            var col = 0
+            var row = 0
+            for (i in 0 until participantGridLayout!!.childCount) {
+                val params =
+                    participantGridLayout!!.getChildAt(i).layoutParams as GridLayout.LayoutParams
+                params.columnSpec = GridLayout.spec(col, 1, 1f)
+                params.rowSpec = GridLayout.spec(row, 1, 1f)
+                if (col + 1 == normalLayoutColumnCount) {
+                    col = 0
+                    row++
+                } else {
+                    col++
+                }
+            }
+            participantGridLayout!!.requestLayout()
         }
     }
+
+    private val normalLayoutRowCount: Int
+        private get() = Math.min(Math.max(1, participantsView.size), 2)
+    private val normalLayoutColumnCount: Int
+        private get() {
+            val maxColumns = 2
+            val result = Math.max(
+                1,
+                (participantsView.size + normalLayoutRowCount - 1) / normalLayoutRowCount
+            )
+            check(result <= maxColumns) { "\${result} videos not allowed." }
+            return result
+        }
 
     private fun setQuality(quality: String) {
         val participants: Iterator<Participant> = meeting!!.participants.values.iterator()

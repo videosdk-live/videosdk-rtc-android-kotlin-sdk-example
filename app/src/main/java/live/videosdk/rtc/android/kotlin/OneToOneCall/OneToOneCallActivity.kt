@@ -40,6 +40,7 @@ import com.google.android.material.snackbar.Snackbar
 import com.nabinbhandari.android.permissions.PermissionHandler
 import com.nabinbhandari.android.permissions.Permissions
 import live.videosdk.rtc.android.*
+import live.videosdk.rtc.android.VideoView
 import live.videosdk.rtc.android.kotlin.Common.Activity.CreateOrJoinActivity
 import live.videosdk.rtc.android.kotlin.Common.Adapter.*
 import live.videosdk.rtc.android.kotlin.Common.Listener.ResponseListener
@@ -49,11 +50,9 @@ import live.videosdk.rtc.android.kotlin.Common.Utils.HelperClass
 import live.videosdk.rtc.android.kotlin.Common.Utils.NetworkUtils
 import live.videosdk.rtc.android.kotlin.R
 import live.videosdk.rtc.android.lib.AppRTCAudioManager
-import live.videosdk.rtc.android.lib.PeerConnectionUtils
 import live.videosdk.rtc.android.listeners.*
 import live.videosdk.rtc.android.model.PubSubPublishOptions
 import org.json.JSONObject
-import org.webrtc.SurfaceViewRenderer
 import org.webrtc.VideoTrack
 import java.util.*
 import kotlin.math.roundToInt
@@ -61,8 +60,8 @@ import kotlin.math.roundToInt
 
 class OneToOneCallActivity : AppCompatActivity() {
     private var meeting: Meeting? = null
-    private var svrLocal: SurfaceViewRenderer? = null
-    private var svrParticipant: SurfaceViewRenderer? = null
+    private var localVideoView: VideoView? = null
+    private var participantVideoView: VideoView? = null
     private var btnWebcam: FloatingActionButton? = null
     private var btnMic: ImageButton? = null
     private var btnAudioSelection: ImageButton? = null
@@ -126,7 +125,7 @@ class OneToOneCallActivity : AppCompatActivity() {
 
     private var chatListener: PubSubMessageListener? = null
 
-    @SuppressLint("ClickableViewAccessibility")
+    @SuppressLint("ClickableViewAccessibility", "MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_one_to_one_call)
@@ -149,11 +148,9 @@ class OneToOneCallActivity : AppCompatActivity() {
         txtParticipantName = findViewById(R.id.txtParticipantName)
         tvName = findViewById(R.id.tvName)
         tvLocalParticipantName = findViewById(R.id.tvLocalParticipantName)
-        svrLocal = findViewById(R.id.svrLocal)
-        svrLocal!!.init(PeerConnectionUtils.getEglContext(), null)
-        svrLocal!!.setMirror(true)
-        svrParticipant = findViewById(R.id.svrParticipant)
-        svrParticipant!!.init(PeerConnectionUtils.getEglContext(), null)
+        localVideoView = findViewById(R.id.svrLocal)
+        localVideoView!!.setMirror(true)
+        participantVideoView = findViewById(R.id.participantVideoView)
         btnMic = findViewById(R.id.btnMic)
         btnWebcam = findViewById(R.id.btnWebcam)
         btnAudioSelection = findViewById(R.id.btnAudioSelection)
@@ -545,16 +542,15 @@ class OneToOneCallActivity : AppCompatActivity() {
             if (meeting!!.participants.size < 1) {
                 hideParticipantCard()
                 if (screenshareTrack != null) {
-                    if (participantTrack != null) participantTrack!!.removeSink(svrLocal)
-                    svrLocal!!.clearImage()
-                    svrLocal!!.visibility = View.GONE
+                    if (participantTrack != null) localVideoView!!.removeTrack()
+                    localVideoView!!.visibility = View.GONE
                     showParticipantCard()
                     if (localTrack != null) {
-                        localTrack!!.addSink(svrLocal)
-                        svrLocal!!.visibility = View.VISIBLE
+                        localVideoView!!.addTrack(localTrack)
+                        localVideoView!!.visibility = View.VISIBLE
                     }
-                    screenshareTrack!!.addSink(svrParticipant)
-                    svrParticipant!!.visibility = View.VISIBLE
+                    participantVideoView!!.addTrack(screenshareTrack)
+                    participantVideoView!!.visibility = View.VISIBLE
                 }
                 if (popupwindow_obj != null && popupwindow_obj!!.isShowing)
                     popupwindow_obj!!.dismiss()
@@ -778,9 +774,8 @@ class OneToOneCallActivity : AppCompatActivity() {
                 if ((stream.kind == "share")) {
                     val track = stream.track as VideoTrack
                     screenshareTrack = null
-                    track.removeSink(svrParticipant)
-                    svrParticipant!!.clearImage()
-                    svrParticipant!!.visibility = View.GONE
+                    participantVideoView!!.removeTrack()
+                    participantVideoView!!.visibility = View.GONE
                     removeTrack(participantTrack, true)
                     txtLocalParticipantName!!.text =
                         meeting!!.localParticipant.displayName.substring(0, 1)
@@ -1115,15 +1110,13 @@ class OneToOneCallActivity : AppCompatActivity() {
             meeting!!.leave()
             meeting = null
         }
-        if (svrParticipant != null) {
-            svrParticipant!!.clearImage()
-            svrParticipant!!.visibility = View.GONE
-            svrParticipant!!.release()
+        if (participantVideoView != null) {
+            participantVideoView!!.visibility = View.GONE
+            participantVideoView!!.releaseSurfaceViewRenderer()
         }
-        if (svrLocal != null) {
-            svrLocal!!.clearImage()
-            svrLocal!!.visibility = View.GONE
-            svrLocal!!.release()
+        if (localVideoView != null) {
+            localVideoView!!.visibility = View.GONE
+            localVideoView!!.releaseSurfaceViewRenderer()
         }
         timer.cancel()
         super.onDestroy()
@@ -1140,41 +1133,39 @@ class OneToOneCallActivity : AppCompatActivity() {
             if (meeting!!.participants.size == 0) {
                 showParticipantCard()
                 if (localTrack != null) {
-                    localTrack!!.addSink(svrLocal)
-                    svrLocal!!.visibility = View.VISIBLE
+                    localVideoView!!.addTrack(localTrack)
+                    localVideoView!!.visibility = View.VISIBLE
                 }
             } else {
                 if (localTrack != null) {
-                    localTrack!!.removeSink(svrLocal)
-                    svrLocal!!.clearImage()
-                    svrLocal!!.visibility = View.GONE
+                    localVideoView!!.removeTrack()
+                    localVideoView!!.visibility = View.GONE
                 }
                 if (participantTrack != null) {
-                    participantTrack!!.removeSink(svrParticipant)
-                    svrParticipant!!.clearImage()
-                    participantTrack!!.addSink(svrLocal)
+                    participantVideoView!!.removeTrack()
+                    localVideoView!!.addTrack(participantTrack)
                     if (participantName != null) txtLocalParticipantName!!.text =
                         participantName!!.substring(0, 1)
-                    svrLocal!!.visibility = View.VISIBLE
+                    localVideoView!!.visibility = View.VISIBLE
                 }
             }
             if (localScreenShare) {
                 participantCard!!.visibility = View.GONE
                 findViewById<View>(R.id.localScreenShareView).visibility = View.VISIBLE
             } else {
-                screenshareTrack!!.addSink(svrParticipant)
-                svrParticipant!!.visibility = View.VISIBLE
+                participantVideoView!!.addTrack(screenshareTrack)
+                participantVideoView!!.visibility = View.VISIBLE
             }
         } else {
             if (participantTrack != null) {
-                svrParticipant!!.visibility = View.VISIBLE
-                participantTrack!!.addSink(svrParticipant)
+                participantVideoView!!.visibility = View.VISIBLE
+                participantVideoView!!.addTrack(participantTrack)
 //                (img_participantActiveSpeaker as View).bringToFront()
             }
             if (localTrack != null) {
-                svrLocal!!.visibility = View.VISIBLE
-                svrLocal!!.setZOrderMediaOverlay(true)
-                localTrack!!.addSink(svrLocal)
+                localVideoView!!.visibility = View.VISIBLE
+                localVideoView!!.setZOrderMediaOverlay(true)
+                localVideoView!!.addTrack(localTrack)
 //                (img_localActiveSpeaker as View?)!!.bringToFront()
                 (localCard as View?)!!.bringToFront()
             }
@@ -1186,29 +1177,24 @@ class OneToOneCallActivity : AppCompatActivity() {
             participantCard!!.visibility = View.VISIBLE
             findViewById<View>(R.id.localScreenShareView).visibility = View.GONE
             if (isLocal) {
-                track?.removeSink(svrLocal)
-                svrLocal!!.clearImage()
-                svrLocal!!.visibility = View.GONE
+                localVideoView!!.removeTrack()
+                localVideoView!!.visibility = View.GONE
             } else {
-                track?.removeSink(svrParticipant)
-                svrParticipant!!.clearImage()
-                svrParticipant!!.visibility = View.GONE
+                participantVideoView!!.removeTrack()
+                participantVideoView!!.visibility = View.GONE
             }
         } else {
             if (!isLocal) {
-                track?.removeSink(svrLocal)
-                svrLocal!!.clearImage()
-                svrLocal!!.visibility = View.GONE
+                localVideoView!!.removeTrack()
+                localVideoView!!.visibility = View.GONE
                 onTrackChange()
             } else {
                 if (meeting!!.participants.size == 0) {
-                    track?.removeSink(svrLocal)
-                    svrLocal!!.clearImage()
-                    svrLocal!!.visibility = View.GONE
+                    localVideoView!!.removeTrack()
+                    localVideoView!!.visibility = View.GONE
                 } else {
-                    track?.removeSink(svrParticipant)
-                    svrParticipant!!.clearImage()
-                    svrParticipant!!.visibility = View.GONE
+                    participantVideoView!!.removeTrack()
+                    participantVideoView!!.visibility = View.GONE
                     onTrackChange()
                 }
             }
@@ -1415,11 +1401,9 @@ class OneToOneCallActivity : AppCompatActivity() {
                     )
 
                 } else if (stream.kind.equals("share", ignoreCase = true)) {
-                    val track: VideoTrack = stream.track as VideoTrack
                     screenshareTrack = null
-                    track.removeSink(svrParticipant)
-                    svrParticipant!!.clearImage()
-                    svrParticipant!!.visibility = View.GONE
+                    participantVideoView!!.removeTrack()
+                    participantVideoView!!.visibility = View.GONE
                     if (meeting!!.participants.isEmpty()) hideParticipantCard()
                     removeTrack(participantTrack, true)
                     txtLocalParticipantName!!.text =

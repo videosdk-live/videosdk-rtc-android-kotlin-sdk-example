@@ -36,7 +36,7 @@ class ParticipantState internal constructor(var meeting: Meeting) {
                 }
             }
 
-            override fun onPresenterChanged(participantId: String) {
+            override fun onPresenterChanged(participantId: String?) {
                 super.onPresenterChanged(participantId)
                 if (!TextUtils.isEmpty(participantId)) {
                     perPageParticipantSize = 2

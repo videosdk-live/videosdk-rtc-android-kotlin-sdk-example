@@ -1,6 +1,7 @@
 package live.videosdk.rtc.android.kotlin.Common.Activity
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
@@ -18,6 +19,7 @@ import androidx.appcompat.widget.Toolbar
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.nabinbhandari.android.permissions.PermissionHandler
 import com.nabinbhandari.android.permissions.Permissions
+import live.videosdk.rtc.android.VideoView
 import live.videosdk.rtc.android.kotlin.Common.Fragment.CreateMeetingFragment
 import live.videosdk.rtc.android.kotlin.Common.Fragment.CreateOrJoinFragment
 import live.videosdk.rtc.android.kotlin.Common.Fragment.JoinMeetingFragment
@@ -34,7 +36,7 @@ class CreateOrJoinActivity : AppCompatActivity() {
         private set
     private var btnMic: FloatingActionButton? = null
     private var btnWebcam: FloatingActionButton? = null
-    private var svrJoin: SurfaceViewRenderer? = null
+    private var joinView: VideoView? = null
     private var toolbar: Toolbar? = null
     private var actionBar: ActionBar? = null
     private var videoTrack: VideoTrack? = null
@@ -72,6 +74,7 @@ class CreateOrJoinActivity : AppCompatActivity() {
         }
     }
 
+    @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_create_or_join)
@@ -82,7 +85,7 @@ class CreateOrJoinActivity : AppCompatActivity() {
         actionBar = supportActionBar
         btnMic = findViewById(R.id.btnMic)
         btnWebcam = findViewById(R.id.btnWebcam)
-        svrJoin = findViewById(R.id.svrJoiningView)
+        joinView = findViewById(R.id.joiningView)
         checkPermissions()
         val fragContainer = findViewById<View>(R.id.fragContainer) as LinearLayout
         val ll = LinearLayout(this)
@@ -208,8 +211,7 @@ class CreateOrJoinActivity : AppCompatActivity() {
                 InitializationOptions.builder(this).createInitializationOptions()
             PeerConnectionFactory.initialize(initializationOptions)
             peerConnectionFactory = PeerConnectionFactory.builder().createPeerConnectionFactory()
-            svrJoin!!.init(PeerConnectionUtils.getEglContext(), null)
-            svrJoin!!.setMirror(true)
+            joinView!!.setMirror(true)
             val surfaceTextureHelper =
                 SurfaceTextureHelper.create("CaptureThread", PeerConnectionUtils.getEglContext())
 
@@ -227,11 +229,10 @@ class CreateOrJoinActivity : AppCompatActivity() {
             videoTrack = peerConnectionFactory!!.createVideoTrack("100", videoSource)
 
             // display in localView
-            videoTrack!!.addSink(svrJoin)
+            joinView!!.addTrack(videoTrack)
         } else {
-            if (videoTrack != null) videoTrack!!.removeSink(svrJoin)
-            svrJoin!!.clearImage()
-            svrJoin!!.release()
+            joinView!!.removeTrack()
+            joinView!!.releaseSurfaceViewRenderer()
         }
     }
 
@@ -262,17 +263,15 @@ class CreateOrJoinActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        if (videoTrack != null) videoTrack!!.removeSink(svrJoin)
-        svrJoin!!.clearImage()
-        svrJoin!!.release()
+        joinView!!.removeTrack()
+        joinView!!.releaseSurfaceViewRenderer()
         closeCapturer()
         super.onDestroy()
     }
 
     override fun onPause() {
-        if (videoTrack != null) videoTrack!!.removeSink(svrJoin)
-        svrJoin!!.clearImage()
-        svrJoin!!.release()
+        joinView!!.removeTrack()
+        joinView!!.releaseSurfaceViewRenderer()
         closeCapturer()
         super.onPause()
     }

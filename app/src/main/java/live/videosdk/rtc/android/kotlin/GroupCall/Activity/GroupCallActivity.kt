@@ -36,6 +36,7 @@ import com.google.android.material.snackbar.Snackbar
 import com.nabinbhandari.android.permissions.PermissionHandler
 import com.nabinbhandari.android.permissions.Permissions
 import live.videosdk.rtc.android.*
+import live.videosdk.rtc.android.VideoView
 import live.videosdk.rtc.android.kotlin.Common.Activity.CreateOrJoinActivity
 import live.videosdk.rtc.android.kotlin.Common.Adapter.*
 import live.videosdk.rtc.android.kotlin.Common.Listener.ResponseListener
@@ -47,12 +48,10 @@ import live.videosdk.rtc.android.kotlin.GroupCall.Adapter.ParticipantViewAdapter
 import live.videosdk.rtc.android.kotlin.GroupCall.Utils.ParticipantState
 import live.videosdk.rtc.android.kotlin.R
 import live.videosdk.rtc.android.lib.AppRTCAudioManager.AudioDevice
-import live.videosdk.rtc.android.lib.PeerConnectionUtils
 import live.videosdk.rtc.android.listeners.*
 import live.videosdk.rtc.android.model.PubSubPublishOptions
 import org.json.JSONObject
 import org.webrtc.RendererCommon
-import org.webrtc.SurfaceViewRenderer
 import org.webrtc.VideoTrack
 import java.util.*
 import kotlin.math.roundToInt
@@ -70,7 +69,7 @@ class GroupCallActivity : AppCompatActivity() {
 
     private var micLayout: LinearLayout? = null
     private var participants: ArrayList<Participant>? = null
-    private var svrShare: SurfaceViewRenderer? = null
+    private var shareView: VideoView? = null
     private var shareLayout: FrameLayout? = null
 
     private var micEnabled = true
@@ -107,6 +106,7 @@ class GroupCallActivity : AppCompatActivity() {
     private var chatListener: PubSubMessageListener? = null
     private var raiseHandListener: PubSubMessageListener? = null
 
+    @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_group_call)
@@ -130,8 +130,7 @@ class GroupCallActivity : AppCompatActivity() {
         btnStopScreenShare = findViewById(R.id.btnStopScreenShare)
         viewPager2 = findViewById(R.id.view_pager_video_grid)
         shareLayout = findViewById(R.id.shareLayout)
-        svrShare = findViewById(R.id.svrShare)
-        svrShare!!.init(PeerConnectionUtils.getEglContext(), null)
+        shareView = findViewById(R.id.shareView)
         token = intent.getStringExtra("token")
         val meetingId = intent.getStringExtra("meetingId")
         micEnabled = intent.getBooleanExtra("micEnabled", true)
@@ -752,8 +751,7 @@ class GroupCallActivity : AppCompatActivity() {
 
     private fun updatePresenter(participantId: String?) {
         if (participantId == null) {
-            svrShare!!.clearImage()
-            svrShare!!.visibility = GONE
+            shareView!!.visibility = GONE
             shareLayout!!.visibility = GONE
             screenshareEnabled = false
             return
@@ -780,11 +778,11 @@ class GroupCallActivity : AppCompatActivity() {
 
         // display share video
         shareLayout!!.visibility = VISIBLE
-        svrShare!!.visibility = VISIBLE
-        svrShare!!.setZOrderMediaOverlay(true)
-        svrShare!!.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT)
+        shareView!!.visibility = VISIBLE
+        shareView!!.setZOrderMediaOverlay(true)
+        shareView!!.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT)
         val videoTrack = shareStream.track as VideoTrack
-        videoTrack.addSink(svrShare)
+        shareView!!.addTrack(videoTrack)
         screenShareParticipantNameSnackbar = Snackbar.make(
             findViewById(R.id.mainLayout), participant.displayName + " started presenting",
             Snackbar.LENGTH_SHORT
@@ -800,9 +798,8 @@ class GroupCallActivity : AppCompatActivity() {
             override fun onStreamDisabled(stream: Stream) {
                 if ((stream.kind == "share")) {
                     val track: VideoTrack = stream.track as VideoTrack
-                    track.removeSink(svrShare)
-                    svrShare!!.clearImage()
-                    svrShare!!.visibility = GONE
+                    shareView!!.removeTrack()
+                    shareView!!.visibility = GONE
                     shareLayout!!.visibility = GONE
                     findViewById<View>(R.id.tvScreenShareParticipantName).visibility =
                         GONE
@@ -1036,11 +1033,10 @@ class GroupCallActivity : AppCompatActivity() {
             meeting!!.leave()
             meeting = null
         }
-        if (svrShare != null) {
-            svrShare!!.clearImage()
-            svrShare!!.visibility = GONE
+        if (shareView != null) {
+            shareView!!.visibility = GONE
             shareLayout!!.visibility = GONE
-            svrShare!!.release()
+            shareView!!.releaseSurfaceViewRenderer()
         }
         super.onDestroy()
     }
