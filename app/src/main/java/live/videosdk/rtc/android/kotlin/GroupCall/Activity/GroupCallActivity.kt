@@ -48,6 +48,7 @@ import live.videosdk.rtc.android.kotlin.GroupCall.Adapter.ParticipantViewAdapter
 import live.videosdk.rtc.android.kotlin.GroupCall.Utils.ParticipantState
 import live.videosdk.rtc.android.kotlin.R
 import live.videosdk.rtc.android.lib.AppRTCAudioManager.AudioDevice
+import live.videosdk.rtc.android.lib.JsonUtils
 import live.videosdk.rtc.android.listeners.*
 import live.videosdk.rtc.android.model.PubSubPublishOptions
 import org.json.JSONObject
@@ -149,6 +150,7 @@ class GroupCallActivity : AppCompatActivity() {
             "h720p_w960p",
             "front",
             CustomStreamTrack.VideoMode.TEXT,
+            true,
             this
         )
         customTracks["video"] = videoCustomTrack
@@ -159,7 +161,7 @@ class GroupCallActivity : AppCompatActivity() {
         // create a new meeting instance
         meeting = VideoSDK.initMeeting(
             this@GroupCallActivity, meetingId, localParticipantName,
-            micEnabled, webcamEnabled, null, customTracks
+            micEnabled, webcamEnabled, null, null, true,customTracks
         )
 
         //
@@ -707,6 +709,7 @@ class GroupCallActivity : AppCompatActivity() {
                 "h720p_w960p",
                 "front",
                 CustomStreamTrack.VideoMode.DETAIL,
+                true,
                 this
             )
             meeting!!.enableWebcam(videoCustomTrack)
@@ -1016,7 +1019,15 @@ class GroupCallActivity : AppCompatActivity() {
     private fun toggleRecording() {
         if (!recording) {
             recordingStatusSnackbar!!.show()
-            meeting!!.startRecording(null)
+            val config = JSONObject()
+            val layout = JSONObject()
+            JsonUtils.jsonPut(layout, "type", "SPOTLIGHT")
+            JsonUtils.jsonPut(layout, "priority", "PIN")
+            JsonUtils.jsonPut(layout, "gridSize", 12)
+            JsonUtils.jsonPut(config, "layout", layout)
+            JsonUtils.jsonPut(config, "orientation", "portrait")
+            JsonUtils.jsonPut(config, "theme", "DARK")
+            meeting!!.startRecording(null,null,config)
         } else {
             meeting!!.stopRecording()
         }
