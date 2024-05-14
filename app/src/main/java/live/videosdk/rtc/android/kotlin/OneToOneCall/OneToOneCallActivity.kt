@@ -18,6 +18,7 @@ import android.text.SpannableStringBuilder
 import android.text.TextWatcher
 import android.text.style.ImageSpan
 import android.util.DisplayMetrics
+import android.util.Log
 import android.view.*
 import android.view.View.OnTouchListener
 import android.view.ViewGroup.MarginLayoutParams
@@ -51,6 +52,9 @@ import live.videosdk.rtc.android.kotlin.Common.Utils.NetworkUtils
 import live.videosdk.rtc.android.kotlin.R
 import live.videosdk.rtc.android.lib.AppRTCAudioManager
 import live.videosdk.rtc.android.lib.JsonUtils
+import live.videosdk.rtc.android.lib.transcription.PostTranscriptionConfig
+import live.videosdk.rtc.android.lib.transcription.SummaryConfig
+import live.videosdk.rtc.android.lib.transcription.TranscriptionConfig
 import live.videosdk.rtc.android.listeners.*
 import live.videosdk.rtc.android.model.PubSubPublishOptions
 import org.json.JSONObject
@@ -126,6 +130,10 @@ class OneToOneCallActivity : AppCompatActivity() {
 
     private var chatListener: PubSubMessageListener? = null
 
+    private var transcriptionEnabled: Boolean = false
+
+//    private var hls: Boolean = false
+
     @SuppressLint("ClickableViewAccessibility", "MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -200,7 +208,7 @@ class OneToOneCallActivity : AppCompatActivity() {
         // create a new meeting instance
         meeting = VideoSDK.initMeeting(
             this@OneToOneCallActivity, meetingId, localParticipantName,
-            false, false, null, null, true,customTracks
+            false, false, null, null, true,null,null,null
         )
         meeting!!.addEventListener(meetingEventListener)
 
@@ -1022,7 +1030,7 @@ class OneToOneCallActivity : AppCompatActivity() {
 
     private fun showMoreOptionsDialog() {
         val participantSize = meeting!!.participants.size + 1
-        val moreOptionsArrayList: ArrayList<ListItem> = ArrayList<ListItem>()
+        val moreOptionsArrayList: ArrayList<ListItem> = ArrayList()
         val start_screen_share = ListItem(
             "Share screen",
             AppCompatResources.getDrawable(this@OneToOneCallActivity, R.drawable.ic_screen_share)!!
@@ -1039,21 +1047,53 @@ class OneToOneCallActivity : AppCompatActivity() {
             "Stop recording",
             AppCompatResources.getDrawable(this@OneToOneCallActivity, R.drawable.ic_recording)!!
         )
+        val start_transcription = ListItem(
+            "Start Transcription",
+            AppCompatResources.getDrawable(this@OneToOneCallActivity, R.drawable.ic_typewritter)!!
+        )
+        val stop_transcription = ListItem(
+            "Stop Transcription",
+            AppCompatResources.getDrawable(this@OneToOneCallActivity, R.drawable.ic_typewritter)!!
+        )
+//        val start_hls = ListItem(
+//            "Start HLS",
+//            AppCompatResources.getDrawable(this@OneToOneCallActivity, R.drawable.ic_outline_content_copy_24)!!
+//        )
+//        val stop_hls = ListItem(
+//            "Stop HLS",
+//            AppCompatResources.getDrawable(this@OneToOneCallActivity, R.drawable.ic_outline_content_copy_24)!!
+//        )
         val participant_list = ListItem(
             "Participants ($participantSize)",
             AppCompatResources.getDrawable(this@OneToOneCallActivity, R.drawable.ic_people)!!
         )
+
         if (localScreenShare) {
             moreOptionsArrayList.add(stop_screen_share)
         } else {
             moreOptionsArrayList.add(start_screen_share)
         }
+
         if (recording) {
             moreOptionsArrayList.add(stop_recording)
         } else {
             moreOptionsArrayList.add(start_recording)
         }
+
+        if (transcriptionEnabled) {
+            moreOptionsArrayList.add(stop_transcription)
+        } else {
+            moreOptionsArrayList.add(start_transcription)
+        }
+
+//        if (hls) {
+//            moreOptionsArrayList.add(stop_hls)
+//        } else {
+//            moreOptionsArrayList.add(start_hls)
+//        }
+
         moreOptionsArrayList.add(participant_list)
+
         val arrayAdapter: ArrayAdapter<*> = MoreOptionsListAdapter(
             this@OneToOneCallActivity,
             R.layout.more_options_list_layout,
@@ -1063,23 +1103,18 @@ class OneToOneCallActivity : AppCompatActivity() {
             MaterialAlertDialogBuilder(this@OneToOneCallActivity, R.style.AlertDialogCustom)
                 .setAdapter(
                     arrayAdapter
-                ) { _: DialogInterface?, which: Int ->
+                ) { _, which ->
                     when (which) {
-                        0 -> {
-                            toggleScreenSharing()
-                        }
-                        1 -> {
-                            toggleRecording()
-                        }
-                        2 -> {
-                            openParticipantList()
-                        }
+                        0 -> toggleScreenSharing()
+                        1 -> toggleRecording()
+                        2 -> toggleTranscription()
+//                        3 -> toggleHLS()
+                        4 -> openParticipantList()
                     }
                 }
         val alertDialog = materialAlertDialogBuilder.create()
         val listView = alertDialog.listView
-        listView.divider =
-            ColorDrawable(ContextCompat.getColor(this, R.color.md_grey_200)) // set color
+        listView.divider = ColorDrawable(ContextCompat.getColor(this, R.color.md_grey_200))
         listView.setFooterDividersEnabled(false)
         listView.addFooterView(View(this@OneToOneCallActivity))
         listView.dividerHeight = 2
@@ -1093,6 +1128,53 @@ class OneToOneCallActivity : AppCompatActivity() {
         alertDialog.show()
     }
 
+
+    private fun toggleTranscription() {
+        if (!transcriptionEnabled) {
+            try {
+                val summaryConfig = SummaryConfig(
+                    true,
+                    "Write summary in sections like Title, Agenda, Speakers, Action Items, Outlines, Notes and Summary"
+                )
+                val transcriptionConfig = TranscriptionConfig(
+                    null,
+                    summaryConfig
+                )
+
+                meeting!!.startTranscription(transcriptionConfig)
+//                Log.d("TAG", "toggleTranscription: " + transcriptionConfig)
+                transcriptionEnabled = true
+                Toast.makeText(this, "Transcription started", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(this, "Failed to start transcription: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            meeting!!.stopTranscription()
+            transcriptionEnabled = false
+            Toast.makeText(this, "Transcription stopped", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+//    private fun toggleHLS() {
+//        if (!hls) {
+//            val config = JSONObject()
+//            val layout = JSONObject().apply {
+//                put("type", "GRID")
+//                put("gridSize", 4)
+//            }
+//            config.put("layout", layout)
+//            config.put("orientation", "portrait")
+//
+//            val summaryConfig = SummaryConfig(false, null)
+//            val transcription = PostTranscriptionConfig(true, summaryConfig)
+//
+//            meeting!!.startHls(config, transcription)
+//        } else {
+//            meeting!!.stopHls()
+//        }
+//    }
+
+
     private fun toggleRecording() {
         if (!recording) {
             recordingStatusSnackbar!!.show()
@@ -1104,7 +1186,11 @@ class OneToOneCallActivity : AppCompatActivity() {
             JsonUtils.jsonPut(config, "layout", layout)
             JsonUtils.jsonPut(config, "orientation", "portrait")
             JsonUtils.jsonPut(config, "theme", "DARK")
-            meeting!!.startRecording(null,null,config)
+
+            val summaryConfig = SummaryConfig(true, null)
+            val transcription = PostTranscriptionConfig(true, summaryConfig)
+
+            meeting!!.startRecording(null,null, config, transcription)
         } else {
             meeting!!.stopRecording()
         }
