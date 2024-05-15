@@ -55,6 +55,7 @@ import live.videosdk.rtc.android.lib.JsonUtils
 import live.videosdk.rtc.android.lib.transcription.PostTranscriptionConfig
 import live.videosdk.rtc.android.lib.transcription.SummaryConfig
 import live.videosdk.rtc.android.lib.transcription.TranscriptionConfig
+import live.videosdk.rtc.android.lib.transcription.TranscriptionText
 import live.videosdk.rtc.android.listeners.*
 import live.videosdk.rtc.android.model.PubSubPublishOptions
 import org.json.JSONObject
@@ -667,6 +668,21 @@ class OneToOneCallActivity : AppCompatActivity() {
         override fun onWebcamRequested(participantId: String, listener: WebcamRequestListener) {
             showWebcamRequestDialog(listener)
         }
+
+        override fun onTranscriptionStateChanged(data: JSONObject) {
+            val status = data.getString("status")
+            Log.d("MeetingActivity", "Transcription status: $status")
+        }
+
+        override fun onTranscriptionText(data: TranscriptionText) {
+            val participantId = data.participantId
+            val participantName = data.participantName
+            val text = data.text
+            val timestamp = data.timestamp
+            val type = data.type
+
+            Log.d("MeetingActivity", "$participantName: $text $timestamp")
+        }
     }
 
     private fun showParticipantCard() {
@@ -1049,11 +1065,11 @@ class OneToOneCallActivity : AppCompatActivity() {
         )
         val start_transcription = ListItem(
             "Start Transcription",
-            AppCompatResources.getDrawable(this@OneToOneCallActivity, R.drawable.ic_typewritter)!!
+            AppCompatResources.getDrawable(this@OneToOneCallActivity, R.drawable.transcription_icon)!!
         )
         val stop_transcription = ListItem(
             "Stop Transcription",
-            AppCompatResources.getDrawable(this@OneToOneCallActivity, R.drawable.ic_typewritter)!!
+            AppCompatResources.getDrawable(this@OneToOneCallActivity, R.drawable.transcription_icon)!!
         )
 //        val start_hls = ListItem(
 //            "Start HLS",
