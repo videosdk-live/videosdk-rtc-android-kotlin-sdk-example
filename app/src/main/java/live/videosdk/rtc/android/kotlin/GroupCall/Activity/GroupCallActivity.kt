@@ -14,6 +14,7 @@ import android.text.SpannableStringBuilder
 import android.text.TextWatcher
 import android.text.style.ImageSpan
 import android.util.DisplayMetrics
+import android.util.Log
 import android.view.*
 import android.view.View.*
 import android.view.animation.TranslateAnimation
@@ -49,6 +50,10 @@ import live.videosdk.rtc.android.kotlin.GroupCall.Utils.ParticipantState
 import live.videosdk.rtc.android.kotlin.R
 import live.videosdk.rtc.android.lib.AppRTCAudioManager.AudioDevice
 import live.videosdk.rtc.android.lib.JsonUtils
+import live.videosdk.rtc.android.lib.transcription.PostTranscriptionConfig
+import live.videosdk.rtc.android.lib.transcription.SummaryConfig
+import live.videosdk.rtc.android.lib.transcription.TranscriptionConfig
+import live.videosdk.rtc.android.lib.transcription.TranscriptionText
 import live.videosdk.rtc.android.listeners.*
 import live.videosdk.rtc.android.model.PubSubPublishOptions
 import org.json.JSONObject
@@ -107,6 +112,10 @@ class GroupCallActivity : AppCompatActivity() {
     private var chatListener: PubSubMessageListener? = null
     private var raiseHandListener: PubSubMessageListener? = null
 
+    private var transcriptionEnabled: Boolean = false
+
+//    private var hls: Boolean = false
+
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -161,7 +170,7 @@ class GroupCallActivity : AppCompatActivity() {
         // create a new meeting instance
         meeting = VideoSDK.initMeeting(
             this@GroupCallActivity, meetingId, localParticipantName,
-            micEnabled, webcamEnabled, null, null, true,customTracks
+            micEnabled, webcamEnabled, null, null, true,null,null,null
         )
 
         //
@@ -581,6 +590,21 @@ class GroupCallActivity : AppCompatActivity() {
         override fun onWebcamRequested(participantId: String, listener: WebcamRequestListener) {
             showWebcamRequestDialog(listener)
         }
+
+        override fun onTranscriptionStateChanged(data: JSONObject) {
+            val status = data.getString("status")
+            Log.d("MeetingActivity", "Transcription status: $status")
+        }
+
+        override fun onTranscriptionText(data: TranscriptionText) {
+            val participantId = data.participantId
+            val participantName = data.participantName
+            val text = data.text
+            val timestamp = data.timestamp
+            val type = data.type
+
+            Log.d("MeetingActivity", "$participantName: $text $timestamp")
+        }
     }
 
 
@@ -933,7 +957,7 @@ class GroupCallActivity : AppCompatActivity() {
 
     private fun showMoreOptionsDialog() {
         val participantSize = meeting!!.participants.size + 1
-        val moreOptionsArrayList: ArrayList<ListItem> = ArrayList<ListItem>()
+        val moreOptionsArrayList: ArrayList<ListItem> = ArrayList()
         val raised_hand = ListItem(
             "Raise Hand",
             AppCompatResources.getDrawable(this@GroupCallActivity, R.drawable.raise_hand)!!
@@ -954,22 +978,55 @@ class GroupCallActivity : AppCompatActivity() {
             "Stop recording",
             AppCompatResources.getDrawable(this@GroupCallActivity, R.drawable.ic_recording)!!
         )
+        val start_transcription = ListItem(
+            "Start Transcription",
+            AppCompatResources.getDrawable(this@GroupCallActivity, R.drawable.transcription_icon)!!
+        )
+        val stop_transcription = ListItem(
+            "Stop Transcription",
+            AppCompatResources.getDrawable(this@GroupCallActivity, R.drawable.transcription_icon)!!
+        )
+//        val start_hls = ListItem(
+//            "Start HLS",
+//            AppCompatResources.getDrawable(this@GroupCallActivity, R.drawable.ic_outline_content_copy_24)!!
+//        )
+//        val stop_hls = ListItem(
+//            "Stop HLS",
+//            AppCompatResources.getDrawable(this@GroupCallActivity, R.drawable.ic_outline_content_copy_24)!!
+//        )
         val participant_list = ListItem(
             "Participants ($participantSize)",
             AppCompatResources.getDrawable(this@GroupCallActivity, R.drawable.ic_people)!!
         )
+
         moreOptionsArrayList.add(raised_hand)
+
         if (localScreenShare) {
             moreOptionsArrayList.add(stop_screen_share)
         } else {
             moreOptionsArrayList.add(start_screen_share)
         }
+
         if (recording) {
             moreOptionsArrayList.add(stop_recording)
         } else {
             moreOptionsArrayList.add(start_recording)
         }
+
+        if (transcriptionEnabled) {
+            moreOptionsArrayList.add(stop_transcription)
+        } else {
+            moreOptionsArrayList.add(start_transcription)
+        }
+
+//        if (hls) {
+//            moreOptionsArrayList.add(stop_hls)
+//        } else {
+//            moreOptionsArrayList.add(start_hls)
+//        }
+
         moreOptionsArrayList.add(participant_list)
+
         val arrayAdapter: ArrayAdapter<*> = MoreOptionsListAdapter(
             this@GroupCallActivity,
             R.layout.more_options_list_layout,
@@ -977,28 +1034,20 @@ class GroupCallActivity : AppCompatActivity() {
         )
         val materialAlertDialogBuilder =
             MaterialAlertDialogBuilder(this@GroupCallActivity, R.style.AlertDialogCustom)
-                .setAdapter(
-                    arrayAdapter
-                ) { _: DialogInterface?, which: Int ->
+                .setAdapter(arrayAdapter) { _, which ->
                     when (which) {
-                        0 -> {
-                            raisedHand()
-                        }
-                        1 -> {
-                            toggleScreenSharing()
-                        }
-                        2 -> {
-                            toggleRecording()
-                        }
-                        3 -> {
-                            openParticipantList()
-                        }
+                        0 -> raisedHand()
+                        1 -> toggleScreenSharing()
+                        2 -> toggleRecording()
+                        3 -> toggleTranscription()
+//                        4 -> toggleHLS()
+                        5 -> openParticipantList()
                     }
                 }
+
         val alertDialog = materialAlertDialogBuilder.create()
         val listView = alertDialog.listView
-        listView.divider =
-            ColorDrawable(ContextCompat.getColor(this, R.color.md_grey_200)) // set color
+        listView.divider = ColorDrawable(ContextCompat.getColor(this, R.color.md_grey_200))
         listView.setFooterDividersEnabled(false)
         listView.addFooterView(View(this@GroupCallActivity))
         listView.dividerHeight = 2
@@ -1006,11 +1055,56 @@ class GroupCallActivity : AppCompatActivity() {
         wmlp.gravity = Gravity.BOTTOM or Gravity.RIGHT
         val layoutParams = WindowManager.LayoutParams()
         layoutParams.copyFrom(alertDialog.window!!.attributes)
-        layoutParams.width = (getWindowWidth() * 0.8).roundToInt().toInt()
+        layoutParams.width = (getWindowWidth() * 0.8).roundToInt()
         layoutParams.height = WindowManager.LayoutParams.WRAP_CONTENT
         alertDialog.window!!.attributes = layoutParams
         alertDialog.show()
     }
+
+    private fun toggleTranscription() {
+        if (!transcriptionEnabled) {
+            try {
+                val summaryConfig = SummaryConfig(
+                    true,
+                    "Write summary in sections like Title, Agenda, Speakers, Action Items, Outlines, Notes and Summary"
+                )
+                val transcriptionConfig = TranscriptionConfig(
+                    null,
+                    summaryConfig
+                )
+
+                meeting!!.startTranscription(transcriptionConfig)
+                transcriptionEnabled = true
+                Toast.makeText(this, "Transcription started", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(this, "Failed to start transcription: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            meeting!!.stopTranscription()
+            transcriptionEnabled = false
+            Toast.makeText(this, "Transcription stopped", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+//    private fun toggleHLS() {
+//        if (!hls) {
+//            val config = JSONObject()
+//            val layout = JSONObject().apply {
+//                put("type", "GRID")
+//                put("gridSize", 4)
+//            }
+//            config.put("layout", layout)
+//            config.put("orientation", "portrait")
+//
+//            val summaryConfig = SummaryConfig(false, null)
+//            val transcription = PostTranscriptionConfig(true, summaryConfig)
+//
+//            meeting!!.startHls(config, transcription)
+//        } else {
+//            meeting!!.stopHls()
+//        }
+//    }
+
 
     private fun raisedHand() {
         meeting!!.pubSub.publish("RAISE_HAND", "Raise Hand by Me", PubSubPublishOptions())
@@ -1027,7 +1121,11 @@ class GroupCallActivity : AppCompatActivity() {
             JsonUtils.jsonPut(config, "layout", layout)
             JsonUtils.jsonPut(config, "orientation", "portrait")
             JsonUtils.jsonPut(config, "theme", "DARK")
-            meeting!!.startRecording(null,null,config)
+
+            val summaryConfig = SummaryConfig(true, null)
+            val transcription = PostTranscriptionConfig(true, summaryConfig)
+
+            meeting!!.startRecording(null,null, config, transcription)
         } else {
             meeting!!.stopRecording()
         }
