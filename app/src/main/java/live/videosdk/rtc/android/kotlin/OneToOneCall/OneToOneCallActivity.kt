@@ -200,7 +200,7 @@ class OneToOneCallActivity : AppCompatActivity() {
         // create a new meeting instance
         meeting = VideoSDK.initMeeting(
             this@OneToOneCallActivity, meetingId, localParticipantName,
-            false, false, null, null, true,customTracks
+            false, false, null, null, true,customTracks,null,null
         )
         meeting!!.addEventListener(meetingEventListener)
 
@@ -1104,13 +1104,14 @@ class OneToOneCallActivity : AppCompatActivity() {
             JsonUtils.jsonPut(config, "layout", layout)
             JsonUtils.jsonPut(config, "orientation", "portrait")
             JsonUtils.jsonPut(config, "theme", "DARK")
-            meeting!!.startRecording(null,null,config)
+            meeting!!.startRecording(null,null,config,null)
         } else {
             meeting!!.stopRecording()
         }
     }
 
     override fun onBackPressed() {
+        super.onBackPressed()
         showLeaveOrEndDialog()
     }
 
