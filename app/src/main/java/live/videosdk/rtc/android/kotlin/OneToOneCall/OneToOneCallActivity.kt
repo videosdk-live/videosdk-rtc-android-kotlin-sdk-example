@@ -200,7 +200,7 @@ class OneToOneCallActivity : AppCompatActivity() {
         // create a new meeting instance
         meeting = VideoSDK.initMeeting(
             this@OneToOneCallActivity, meetingId, localParticipantName,
-            false, false, null, null, true,customTracks
+            false, false, null, null, true,customTracks,null
         )
         meeting!!.addEventListener(meetingEventListener)
 
@@ -1111,6 +1111,7 @@ class OneToOneCallActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
+        super.onBackPressed()
         showLeaveOrEndDialog()
     }
 

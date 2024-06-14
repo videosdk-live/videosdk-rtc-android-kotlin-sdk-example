@@ -161,7 +161,7 @@ class GroupCallActivity : AppCompatActivity() {
         // create a new meeting instance
         meeting = VideoSDK.initMeeting(
             this@GroupCallActivity, meetingId, localParticipantName,
-            micEnabled, webcamEnabled, null, null, true,customTracks
+            micEnabled, webcamEnabled, null, null, true,customTracks,null
         )
 
         //
@@ -1034,6 +1034,7 @@ class GroupCallActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
+        super.onBackPressed()
         showLeaveOrEndDialog()
     }
 
