@@ -161,7 +161,7 @@ class GroupCallActivity : AppCompatActivity() {
         // create a new meeting instance
         meeting = VideoSDK.initMeeting(
             this@GroupCallActivity, meetingId, localParticipantName,
-            micEnabled, webcamEnabled, null, null, true,customTracks,null
+            micEnabled, webcamEnabled, null, null, true,customTracks,null,null
         )
 
         //
@@ -1027,7 +1027,7 @@ class GroupCallActivity : AppCompatActivity() {
             JsonUtils.jsonPut(config, "layout", layout)
             JsonUtils.jsonPut(config, "orientation", "portrait")
             JsonUtils.jsonPut(config, "theme", "DARK")
-            meeting!!.startRecording(null,null,config)
+            meeting!!.startRecording(null,null,config,null)
         } else {
             meeting!!.stopRecording()
         }
