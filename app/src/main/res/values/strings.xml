@@ -16,6 +16,7 @@
     <string name="write_message">Write your message</string>
     <string name="remove">Remove</string>
     <string name="toggle_mic">Toggle mic</string>
+    <string name="camera_is_turned_off">Camera is turned off</string>
     <string-array name="meeting_options">
         <item>One to One Meeting</item>
         <item>Group Meeting</item>

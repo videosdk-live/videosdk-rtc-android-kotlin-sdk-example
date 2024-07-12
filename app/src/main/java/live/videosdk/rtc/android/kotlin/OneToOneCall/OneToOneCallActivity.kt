@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.Context
 import android.content.DialogInterface
 import android.content.Intent
 import android.graphics.Color
@@ -18,6 +19,7 @@ import android.text.SpannableStringBuilder
 import android.text.TextWatcher
 import android.text.style.ImageSpan
 import android.util.DisplayMetrics
+import android.util.Log
 import android.view.*
 import android.view.View.OnTouchListener
 import android.view.ViewGroup.MarginLayoutParams
@@ -37,8 +39,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.snackbar.Snackbar
-import com.nabinbhandari.android.permissions.PermissionHandler
-import com.nabinbhandari.android.permissions.Permissions
+
 import live.videosdk.rtc.android.*
 import live.videosdk.rtc.android.VideoView
 import live.videosdk.rtc.android.kotlin.Common.Activity.CreateOrJoinActivity
@@ -53,6 +54,9 @@ import live.videosdk.rtc.android.lib.AppRTCAudioManager
 import live.videosdk.rtc.android.lib.JsonUtils
 import live.videosdk.rtc.android.listeners.*
 import live.videosdk.rtc.android.model.PubSubPublishOptions
+import live.videosdk.rtc.android.permission.Permission
+import live.videosdk.rtc.android.permission.PermissionHandler
+import live.videosdk.rtc.android.permission.Permissions
 import org.json.JSONObject
 import org.webrtc.VideoTrack
 import java.util.*
@@ -190,8 +194,10 @@ class OneToOneCallActivity : AppCompatActivity() {
             "front",
             CustomStreamTrack.VideoMode.TEXT,
             true,
-            this
+            this,VideoSDK.getSelectedVideoDevice()
         )
+
+        Log.d("TAG", "onCreate: " + VideoSDK.getSelectedVideoDevice().label)
         customTracks["video"] = videoCustomTrack
 
         val audioCustomTrack = VideoSDK.createAudioTrack("high_quality", this)
@@ -200,7 +206,7 @@ class OneToOneCallActivity : AppCompatActivity() {
         // create a new meeting instance
         meeting = VideoSDK.initMeeting(
             this@OneToOneCallActivity, meetingId, localParticipantName,
-            false, false, null, null, true,customTracks
+            false, false, null, null, true,customTracks,null
         )
         meeting!!.addEventListener(meetingEventListener)
 
@@ -797,34 +803,84 @@ class OneToOneCallActivity : AppCompatActivity() {
         })
     }
 
-    private val permissionHandler: PermissionHandler = object : PermissionHandler() {
+    private val permissionHandler: com.nabinbhandari.android.permissions.PermissionHandler = object : com.nabinbhandari.android.permissions.PermissionHandler() {
+        override fun onGranted() {
+        }
+
+        override fun onDenied(context: Context, deniedPermissions: ArrayList<String>) {
+            super.onDenied(context, deniedPermissions)
+            Toast.makeText(
+                this@OneToOneCallActivity,
+                "Permission(s) not granted. Some feature may not work", Toast.LENGTH_SHORT
+            ).show()
+        }
+
+        override fun onBlocked(context: Context, blockedList: ArrayList<String>): Boolean {
+            Toast.makeText(
+                this@OneToOneCallActivity,
+                "Permission(s) not granted. Some feature may not work", Toast.LENGTH_SHORT
+            ).show()
+            return super.onBlocked(context, blockedList)
+        }
+
+
+    }
+
+
+    private val permissionHandlerSDK: PermissionHandler = object :
+        PermissionHandler() {
         override fun onGranted() {
             if (meeting != null) meeting!!.join()
+        }
+
+        override fun onBlocked(
+            context: Context,
+            blockedList: java.util.ArrayList<Permission>
+        ): Boolean {
+            for (blockedPermission in blockedList) {
+                Log.d("VideoSDK Permission", "onBlocked: $blockedPermission")
+            }
+            return super.onBlocked(context, blockedList)
+        }
+
+        override fun onDenied(
+            context: Context,
+            deniedPermissions: java.util.ArrayList<Permission>
+        ) {
+            for (deniedPermission in deniedPermissions) {
+                Log.d("VideoSDK Permission", "onDenied: $deniedPermission")
+            }
+            super.onDenied(context, deniedPermissions)
+        }
+
+        override fun onJustBlocked(
+            context: Context,
+            justBlockedList: java.util.ArrayList<Permission>,
+            deniedPermissions: java.util.ArrayList<Permission>
+        ) {
+            for (justBlockedPermission in justBlockedList) {
+                Log.d("VideoSDK Permission", "onJustBlocked: $justBlockedPermission")
+            }
+            super.onJustBlocked(context, justBlockedList, deniedPermissions)
         }
     }
 
     private fun checkPermissions() {
         val permissionList: MutableList<String> = ArrayList()
         permissionList.add(Manifest.permission.INTERNET)
-        permissionList.add(Manifest.permission.MODIFY_AUDIO_SETTINGS)
-        permissionList.add(Manifest.permission.RECORD_AUDIO)
-        permissionList.add(Manifest.permission.CAMERA)
         permissionList.add(Manifest.permission.READ_PHONE_STATE)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) permissionList.add(
-            Manifest.permission.BLUETOOTH_CONNECT
-        )
-
-        val permissions = arrayOf<String>()
-        val rationale = "Please provide permissions"
         val options =
-            Permissions.Options().setRationaleDialogTitle("Info").setSettingsDialogTitle("Warning")
-        Permissions.check(
-            this,
-            permissionList.toTypedArray(),
-            rationale,
-            options,
-            permissionHandler
+            com.nabinbhandari.android.permissions.Permissions.Options().sendDontAskAgainToSettings(false)
+        com.nabinbhandari.android.permissions.Permissions.check(this, permissionList.toTypedArray(), null, options, permissionHandler)
+        val permissionListSDK: MutableList<Permission> = ArrayList()
+        permissionListSDK.add(Permission.audio)
+        permissionListSDK.add(Permission.video)
+        permissionListSDK.add(Permission.bluetooth)
+        val optionsSDK = Permissions.Options().setRationaleDialogTitle("Info").setSettingsDialogTitle("Warning")
+        VideoSDK.checkPermissions(this,
+            permissionListSDK,
+            optionsSDK,
+            permissionHandlerSDK
         )
     }
 
@@ -860,7 +916,7 @@ class OneToOneCallActivity : AppCompatActivity() {
                 "front",
                 CustomStreamTrack.VideoMode.DETAIL,
                 true,
-                this
+                this,VideoSDK.getSelectedVideoDevice()
             )
             meeting!!.enableWebcam(videoCustomTrack)
         }
@@ -1104,13 +1160,15 @@ class OneToOneCallActivity : AppCompatActivity() {
             JsonUtils.jsonPut(config, "layout", layout)
             JsonUtils.jsonPut(config, "orientation", "portrait")
             JsonUtils.jsonPut(config, "theme", "DARK")
-            meeting!!.startRecording(null,null,config)
+            meeting!!.startRecording(null,null,config,null)
         } else {
             meeting!!.stopRecording()
         }
     }
 
+    @Deprecated("This method has been deprecated in favor of using the\n      {@link OnBackPressedDispatcher} via {@link #getOnBackPressedDispatcher()}.\n      The OnBackPressedDispatcher controls how back button events are dispatched\n      to one or more {@link OnBackPressedCallback} objects.")
     override fun onBackPressed() {
+        super.onBackPressed()
         showLeaveOrEndDialog()
     }
 

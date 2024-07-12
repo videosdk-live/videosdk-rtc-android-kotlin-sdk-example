@@ -14,6 +14,7 @@ import android.text.SpannableStringBuilder
 import android.text.TextWatcher
 import android.text.style.ImageSpan
 import android.util.DisplayMetrics
+import android.util.Log
 import android.view.*
 import android.view.View.*
 import android.view.animation.TranslateAnimation
@@ -51,6 +52,7 @@ import live.videosdk.rtc.android.lib.AppRTCAudioManager.AudioDevice
 import live.videosdk.rtc.android.lib.JsonUtils
 import live.videosdk.rtc.android.listeners.*
 import live.videosdk.rtc.android.model.PubSubPublishOptions
+import live.videosdk.rtc.android.permission.Permission
 import org.json.JSONObject
 import org.webrtc.RendererCommon
 import org.webrtc.VideoTrack
@@ -151,7 +153,7 @@ class GroupCallActivity : AppCompatActivity() {
             "front",
             CustomStreamTrack.VideoMode.TEXT,
             true,
-            this
+            this,null,VideoSDK.getSelectedVideoDevice()
         )
         customTracks["video"] = videoCustomTrack
 
@@ -161,7 +163,7 @@ class GroupCallActivity : AppCompatActivity() {
         // create a new meeting instance
         meeting = VideoSDK.initMeeting(
             this@GroupCallActivity, meetingId, localParticipantName,
-            micEnabled, webcamEnabled, null, null, true,customTracks
+            micEnabled, webcamEnabled, null, null, true,customTracks,null
         )
 
         //
@@ -648,34 +650,84 @@ class GroupCallActivity : AppCompatActivity() {
         meeting!!.enableScreenShare(data)
     }
 
-    private val permissionHandler: PermissionHandler = object : PermissionHandler() {
+    private val permissionHandler: com.nabinbhandari.android.permissions.PermissionHandler = object : com.nabinbhandari.android.permissions.PermissionHandler() {
+        override fun onGranted() {
+        }
+
+        override fun onDenied(context: Context, deniedPermissions: ArrayList<String>) {
+            super.onDenied(context, deniedPermissions)
+            Toast.makeText(
+                this@GroupCallActivity,
+                "Permission(s) not granted. Some feature may not work", Toast.LENGTH_SHORT
+            ).show()
+        }
+
+        override fun onBlocked(context: Context, blockedList: ArrayList<String>): Boolean {
+            Toast.makeText(
+                this@GroupCallActivity,
+                "Permission(s) not granted. Some feature may not work", Toast.LENGTH_SHORT
+            ).show()
+            return super.onBlocked(context, blockedList)
+        }
+
+
+    }
+
+
+    private val permissionHandlerSDK: live.videosdk.rtc.android.permission.PermissionHandler = object :
+        live.videosdk.rtc.android.permission.PermissionHandler() {
         override fun onGranted() {
             if (meeting != null) meeting!!.join()
+        }
+
+        override fun onBlocked(
+            context: Context,
+            blockedList: java.util.ArrayList<Permission>
+        ): Boolean {
+            for (blockedPermission in blockedList) {
+                Log.d("VideoSDK Permission", "onBlocked: $blockedPermission")
+            }
+            return super.onBlocked(context, blockedList)
+        }
+
+        override fun onDenied(
+            context: Context,
+            deniedPermissions: java.util.ArrayList<Permission>
+        ) {
+            for (deniedPermission in deniedPermissions) {
+                Log.d("VideoSDK Permission", "onDenied: $deniedPermission")
+            }
+            super.onDenied(context, deniedPermissions)
+        }
+
+        override fun onJustBlocked(
+            context: Context,
+            justBlockedList: java.util.ArrayList<Permission>,
+            deniedPermissions: java.util.ArrayList<Permission>
+        ) {
+            for (justBlockedPermission in justBlockedList) {
+                Log.d("VideoSDK Permission", "onJustBlocked: $justBlockedPermission")
+            }
+            super.onJustBlocked(context, justBlockedList, deniedPermissions)
         }
     }
 
     private fun checkPermissions() {
         val permissionList: MutableList<String> = ArrayList()
         permissionList.add(Manifest.permission.INTERNET)
-        permissionList.add(Manifest.permission.MODIFY_AUDIO_SETTINGS)
-        permissionList.add(Manifest.permission.RECORD_AUDIO)
-        permissionList.add(Manifest.permission.CAMERA)
         permissionList.add(Manifest.permission.READ_PHONE_STATE)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) permissionList.add(
-            Manifest.permission.BLUETOOTH_CONNECT
-        )
-
-        val permissions = arrayOf<String>()
-        val rationale = "Please provide permissions"
         val options =
-            Permissions.Options().setRationaleDialogTitle("Info").setSettingsDialogTitle("Warning")
-        Permissions.check(
-            this,
-            permissionList.toTypedArray(),
-            rationale,
-            options,
-            permissionHandler
+            com.nabinbhandari.android.permissions.Permissions.Options().sendDontAskAgainToSettings(false)
+        com.nabinbhandari.android.permissions.Permissions.check(this, permissionList.toTypedArray(), null, options, permissionHandler)
+        val permissionListSDK: MutableList<Permission> = ArrayList()
+        permissionListSDK.add(Permission.audio)
+        permissionListSDK.add(Permission.video)
+        permissionListSDK.add(Permission.bluetooth)
+        val optionsSDK = live.videosdk.rtc.android.permission.Permissions.Options().setRationaleDialogTitle("Info").setSettingsDialogTitle("Warning")
+        VideoSDK.checkPermissions(this,
+            permissionListSDK,
+            optionsSDK,
+            permissionHandlerSDK
         )
     }
 
@@ -710,7 +762,7 @@ class GroupCallActivity : AppCompatActivity() {
                 "front",
                 CustomStreamTrack.VideoMode.DETAIL,
                 true,
-                this
+                this,VideoSDK.getSelectedVideoDevice()
             )
             meeting!!.enableWebcam(videoCustomTrack)
         }
@@ -1027,13 +1079,14 @@ class GroupCallActivity : AppCompatActivity() {
             JsonUtils.jsonPut(config, "layout", layout)
             JsonUtils.jsonPut(config, "orientation", "portrait")
             JsonUtils.jsonPut(config, "theme", "DARK")
-            meeting!!.startRecording(null,null,config)
+            meeting!!.startRecording(null,null,config,null)
         } else {
             meeting!!.stopRecording()
         }
     }
 
     override fun onBackPressed() {
+        super.onBackPressed()
         showLeaveOrEndDialog()
     }
 

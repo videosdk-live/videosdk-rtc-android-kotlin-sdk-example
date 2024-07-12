@@ -40,7 +40,7 @@
             android:fontFamily="sans-serif-medium"
             android:textFontWeight="620"
             android:letterSpacing="0"
-            android:textSize="18dp"
+            android:textSize="18sp"
             android:gravity="center"
             android:paddingStart="60dp"
             />
