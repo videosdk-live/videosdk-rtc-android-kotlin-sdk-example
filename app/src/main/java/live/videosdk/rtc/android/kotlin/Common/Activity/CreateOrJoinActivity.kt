@@ -212,12 +212,6 @@ class CreateOrJoinActivity : AppCompatActivity() {
             if(removedDevices.isNotEmpty()){
                 Toast.makeText(this,"$removedDevices Removed", Toast.LENGTH_SHORT).show()
             }
-            when (selectedAudioDevice.label) {
-                "BLUETOOTH" -> optionsMenu.findItem(R.id.Audio).setIcon(R.drawable.baseline_bluetooth_connected_24)
-                "WIRED_HEADSET" -> optionsMenu.findItem(R.id.Audio).setIcon(R.drawable.baseline_headphones_24)
-                "SPEAKER_PHONE" -> optionsMenu.findItem(R.id.Audio).setIcon(R.drawable.baseline_volume_up_24)
-                "EARPIECE" -> optionsMenu.findItem(R.id.Audio).setIcon(R.drawable.baseline_call_24)
-            }
         }
 
     }
@@ -283,6 +277,12 @@ class CreateOrJoinActivity : AppCompatActivity() {
             }
             bottomSheetDialog.cancel()
             Toast.makeText(this, "Selected  $itemDto",Toast.LENGTH_SHORT).show()
+            when (itemDto) {
+                "BLUETOOTH" -> optionsMenu.findItem(R.id.Audio).setIcon(R.drawable.baseline_bluetooth_connected_24)
+                "WIRED_HEADSET" -> optionsMenu.findItem(R.id.Audio).setIcon(R.drawable.baseline_headphones_24)
+                "SPEAKER_PHONE" -> optionsMenu.findItem(R.id.Audio).setIcon(R.drawable.baseline_volume_up_24)
+                "EARPIECE" -> optionsMenu.findItem(R.id.Audio).setIcon(R.drawable.baseline_call_24)
+            }
         }
         recyclerView.adapter = preCallListAdaptor
         bottomSheetDialog.show()
