@@ -160,7 +160,7 @@ The token is used to create and validate a meeting using API and also initialize
 
 - [`CreateOrJoinActivity.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/Common/Activity/CreateOrJoinActivity.kt) and [`activity_create_or_join.xml`](app/src/main/res/layout/activity_create_or_join.xml) : This Activity allows users to either create or join a meeting. It manages microphone and webcam permissions and handles UI interactions like enabling/disabling audio and video. It also switches between the `CreateMeetingFragment` and `JoinMeetingFragment`, depending on user actions.
 
-- [`CreateOrJoinFragment.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/Common/Fragment/CreateOrJoinFragment.kt) and [`fragment_createorjoin.xml`](app/src/main/res/layout/fragment_createorjoin.xml) : This fragment provides two buttons for users to either create or join a meeting. On button clicks, it transitions to the respective fragments (`CreateMeetingFragment` or `JoinMeetingFragment`) within `CreateOrJoinActivity`.
+- [`CreateOrJoinFragment.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/Common/Fragment/CreateOrJoinFragment.kt) and [`fragment_createorjoin.xml`](app/src/main/res/layout/fragment_create_or_join.xml) : This fragment provides two buttons for users to either create or join a meeting. On button clicks, it transitions to the respective fragments (`CreateMeetingFragment` or `JoinMeetingFragment`) within `CreateOrJoinActivity`.
 
 - [`CreateMeetingFragment.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/Common/Fragment/CreateMeetingFragment.kt) and [`fragment_create_meeting.xml`](app/src/main/res/layout/fragment_create_meeting.xml) : This fragment enables users to create a new meeting by selecting a meeting type (e.g., One-to-One or Group Call) and entering their name. Upon submission, it makes a network request to create a meeting and navigates to the relevant meeting activity.
 
@@ -207,7 +207,7 @@ The token is used to create and validate a meeting using API and also initialize
 - [**React SDK Example**](https://github.com/videosdk-live/videosdk-rtc-react-sdk-example)
 - [**React Native SDK Example**](https://github.com/videosdk-live/videosdk-rtc-react-native-sdk-example)
 - [**Flutter SDK Example**](https://github.com/videosdk-live/videosdk-rtc-flutter-sdk-example)
-- [**Android Java SDK Example**](https://github.com/videosdk-live/videosdk-rtc-android-kotlin-sdk-example)
+- [**Android Java SDK Example**](https://github.com/videosdk-live/videosdk-rtc-android-java-sdk-example.git)
 - [**iOS SDK Example**](https://github.com/videosdk-live/videosdk-rtc-ios-sdk-example)
 
 
