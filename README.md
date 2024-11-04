@@ -197,7 +197,7 @@ The token is used to create and validate a meeting using API and also initialize
 - [item_message_list.xml](app/src/main/res/layout/item_message_list.xml) : This layout defines the structure of each chat message in the list. It displays the sender's name, the message, and the message timestamp.
 
 <p align="center">
-<img width="300" src="assets/chat.gif"/>
+<img width="300" src="assets/chat_view.gif"/>
 </p>
 
 ### 5. ParticipantList
