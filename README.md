@@ -158,6 +158,10 @@ The token is used to create and validate a meeting using API and also initialize
 
 - [list_items_bottom_sheet.xml](app/src/main/res/layout/list_items_bottom_sheet.xml) : This layout defines how each item in the bottom sheet looks. It contains a `LinearLayout` with an `ImageView` for the device icon, a `TextView` for the device label, and another `ImageView` for a checkmark icon. The checkmark is used to indicate the currently selected device.
 
+<p align="center">
+<img width="300" src="assets/precall_screen.gif"/>
+</p>
+
 ### 2. Create or Join Meeting
 
 - [`NetworkUtils.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/Common/Utils/NetworkUtils.kt) - This class is used to call the API to generate a token, create and validate the meeting.
@@ -170,6 +174,10 @@ The token is used to create and validate a meeting using API and also initialize
 
 - [`JoinMeetingFragment.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/Common/Fragment/JoinMeetingFragment.kt) and [`fragment_join_meeting.xml`](app/src/main/res/layout/fragment_join_meeting.xml) : This fragment allows users to join an existing meeting by entering a valid meeting ID and their name. It validates input and, on success, navigates to the appropriate meeting activity based on the selected meeting type.
 
+<p align="center">
+<img width="300" src="assets/create_meeting.gif"/>
+</p>
+
 ### 3. Switch AudioDevice
 
 - [`AudioDeviceListAdapter.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/Common/Adapter/AudioDeviceListAdapter.kt) : This is a custom `ArrayAdapter` that displays a list of audio devices in a dialog. It uses a `ListItem` model to represent each audio device. The layout for each list item is defined in `audio_device_list_layout.xml`.
@@ -177,6 +185,10 @@ The token is used to create and validate a meeting using API and also initialize
 - [`ListItem.kt`](app/src/main/java/live/videosdk/rtc/android/kotlin/Common/Modal/ListItem.kt) : This class represents an individual list item (audio device) with properties such as the device name, icon, and a description, and a boolean indicating whether the item is selected.
 
 - [`audio_device_list_layout.xml`](app/src/main/res/layout/audio_device_list_layout.xml) : This layout defines the appearance of each audio device in the list.
+
+<p align="center">
+<img width="300" src="assets/mic_output_device.gif"/>
+</p>
 
 ### 4. Chat
 
@@ -191,6 +203,10 @@ The token is used to create and validate a meeting using API and also initialize
 - [layout_participants_list_view.xml](app/src/main/res/layout/layout_participants_list_view.xml) : This layout defines the structure for the participant's list view. It includes a `RecyclerView` that lists each participant using the item_participant_list_layout.
 
 - [item_participant_list_layout.xml](app/src/main/res/layout/item_participant_list_layout.xml) : This layout defines the appearance of each participant in the list. It displays the participant’s name, microphone, and camera status.
+
+<p align="center">
+<img width="300" src="assets/participant_list.gif"/>
+</p>
 
 ### [OneToOneCall package](app/src/main/java/live/videosdk/rtc/android/kotlin/OneToOneCall)
 
