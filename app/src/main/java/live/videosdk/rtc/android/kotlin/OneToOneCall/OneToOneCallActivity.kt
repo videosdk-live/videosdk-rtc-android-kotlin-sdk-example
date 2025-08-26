@@ -47,11 +47,13 @@ import live.videosdk.rtc.android.kotlin.Common.Adapter.*
 import live.videosdk.rtc.android.kotlin.Common.Listener.ResponseListener
 import live.videosdk.rtc.android.kotlin.Common.Modal.ListItem
 import live.videosdk.rtc.android.kotlin.Common.RobotoFont
+import live.videosdk.rtc.android.kotlin.Common.Service.ForegroundService
 import live.videosdk.rtc.android.kotlin.Common.Utils.HelperClass
 import live.videosdk.rtc.android.kotlin.Common.Utils.NetworkUtils
 import live.videosdk.rtc.android.kotlin.R
 import live.videosdk.rtc.android.lib.AppRTCAudioManager
 import live.videosdk.rtc.android.lib.JsonUtils
+import live.videosdk.rtc.android.lib.MeetingState
 import live.videosdk.rtc.android.listeners.*
 import live.videosdk.rtc.android.model.PubSubPublishOptions
 import live.videosdk.rtc.android.permission.Permission
@@ -455,6 +457,10 @@ class OneToOneCallActivity : AppCompatActivity() {
                             }
                         })
 
+                    startService(Intent(applicationContext, ForegroundService::class.java).apply {
+                        action = ForegroundService.ACTION_START
+                    })
+
 
                     chatListener =
                         PubSubMessageListener { pubSubMessage ->
@@ -525,6 +531,11 @@ class OneToOneCallActivity : AppCompatActivity() {
                     Intent.FLAG_ACTIVITY_NEW_TASK
                             or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 )
+
+                startService(Intent(applicationContext, ForegroundService::class.java).apply {
+                    action = ForegroundService.ACTION_STOP
+                })
+
                 startActivity(intents)
                 finish()
             }
@@ -634,8 +645,8 @@ class OneToOneCallActivity : AppCompatActivity() {
 //            }
         }
 
-        override fun onMeetingStateChanged(state: String) {
-            if (state === "FAILED") {
+        override fun onMeetingStateChanged(state: MeetingState?) {
+            if (state === MeetingState.DISCONNECTED) {
                 val parentLayout = findViewById<View>(android.R.id.content)
                 val builderTextLeft = SpannableStringBuilder()
                 builderTextLeft.append("   Call disconnected. Reconnecting...")
@@ -734,7 +745,7 @@ class OneToOneCallActivity : AppCompatActivity() {
             localScreenShare = false
             return
         }
-        meeting!!.enableScreenShare(data)
+        meeting!!.enableScreenShare(data,true)
     }
 
     private fun updatePresenter(participantId: String?) {

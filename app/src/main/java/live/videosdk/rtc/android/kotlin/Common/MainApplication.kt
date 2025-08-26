@@ -7,6 +7,7 @@ import com.androidnetworking.AndroidNetworking
 class MainApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        VideoSDK.setEnableActivityLifecycle(false)
         VideoSDK.initialize(applicationContext)
         AndroidNetworking.initialize(applicationContext)
     }
