@@ -43,6 +43,7 @@ import live.videosdk.rtc.android.kotlin.Common.Adapter.*
 import live.videosdk.rtc.android.kotlin.Common.Listener.ResponseListener
 import live.videosdk.rtc.android.kotlin.Common.Modal.ListItem
 import live.videosdk.rtc.android.kotlin.Common.RobotoFont
+import live.videosdk.rtc.android.kotlin.Common.Service.ForegroundService
 import live.videosdk.rtc.android.kotlin.Common.Utils.HelperClass
 import live.videosdk.rtc.android.kotlin.Common.Utils.NetworkUtils
 import live.videosdk.rtc.android.kotlin.GroupCall.Adapter.ParticipantViewAdapter
@@ -50,6 +51,7 @@ import live.videosdk.rtc.android.kotlin.GroupCall.Utils.ParticipantState
 import live.videosdk.rtc.android.kotlin.R
 import live.videosdk.rtc.android.lib.AppRTCAudioManager.AudioDevice
 import live.videosdk.rtc.android.lib.JsonUtils
+import live.videosdk.rtc.android.lib.MeetingState
 import live.videosdk.rtc.android.listeners.*
 import live.videosdk.rtc.android.model.PubSubPublishOptions
 import live.videosdk.rtc.android.permission.Permission
@@ -392,6 +394,7 @@ class GroupCallActivity : AppCompatActivity() {
 
 
     private val meetingEventListener: MeetingEventListener = object : MeetingEventListener() {
+        @SuppressLint("NewApi")
         override fun onMeetingJoined() {
             if (meeting != null) {
                 //hide progress when meetingJoined
@@ -408,6 +411,11 @@ class GroupCallActivity : AppCompatActivity() {
                             showMeetingTime()
                         }
                     })
+
+                startService(Intent(applicationContext, ForegroundService::class.java).apply {
+                    action = ForegroundService.ACTION_START
+                })
+
                 viewPager2!!.offscreenPageLimit = 1
                 viewPager2!!.adapter = viewAdapter
                 raiseHandListener =
@@ -502,6 +510,11 @@ class GroupCallActivity : AppCompatActivity() {
                     Intent.FLAG_ACTIVITY_NEW_TASK
                             or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_CLEAR_TASK
                 )
+
+                startService(Intent(applicationContext, ForegroundService::class.java).apply {
+                    action = ForegroundService.ACTION_STOP
+                })
+
                 startActivity(intents)
                 finish()
             }
@@ -555,8 +568,8 @@ class GroupCallActivity : AppCompatActivity() {
         }
 
         override fun onSpeakerChanged(participantId: String?) {}
-        override fun onMeetingStateChanged(state: String) {
-            if (state === "FAILED") {
+        override fun onMeetingStateChanged(state: MeetingState?) {
+            if (state === MeetingState.DISCONNECTED) {
                 val parentLayout = findViewById<View>(android.R.id.content)
                 val builderTextLeft = SpannableStringBuilder()
                 builderTextLeft.append("   Call disconnected. Reconnecting...")
@@ -647,7 +660,7 @@ class GroupCallActivity : AppCompatActivity() {
             localScreenShare = false
             return
         }
-        meeting!!.enableScreenShare(data)
+        meeting!!.enableScreenShare(data,true)
     }
 
     private val permissionHandler: com.nabinbhandari.android.permissions.PermissionHandler = object : com.nabinbhandari.android.permissions.PermissionHandler() {

@@ -316,6 +316,7 @@ class CreateOrJoinActivity : AppCompatActivity() {
         val permissionList: MutableList<String> = ArrayList()
         permissionList.add(Manifest.permission.INTERNET)
         permissionList.add(Manifest.permission.READ_PHONE_STATE)
+        permissionList.add(Manifest.permission.POST_NOTIFICATIONS)
         val options =
             com.nabinbhandari.android.permissions.Permissions.Options().sendDontAskAgainToSettings(false)
         com.nabinbhandari.android.permissions.Permissions.check(this, permissionList.toTypedArray(), null, options, permissionHandler)
