@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
@@ -29,17 +31,14 @@ import live.videosdk.rtc.android.kotlin.Common.Fragment.CreateMeetingFragment
 import live.videosdk.rtc.android.kotlin.Common.Fragment.CreateOrJoinFragment
 import live.videosdk.rtc.android.kotlin.Common.Fragment.JoinMeetingFragment
 import live.videosdk.rtc.android.kotlin.R
-import live.videosdk.rtc.android.lib.PeerConnectionUtils
 import live.videosdk.rtc.android.mediaDevice.AudioDeviceInfo
 import live.videosdk.rtc.android.mediaDevice.FacingMode
 import live.videosdk.rtc.android.mediaDevice.VideoDeviceInfo
 import live.videosdk.rtc.android.permission.Permission
 import live.videosdk.rtc.android.permission.PermissionHandler
 import live.videosdk.rtc.android.permission.Permissions
-import org.webrtc.Camera1Enumerator
 import org.webrtc.PeerConnectionFactory
 import org.webrtc.PeerConnectionFactory.InitializationOptions
-import org.webrtc.SurfaceTextureHelper
 import org.webrtc.VideoCapturer
 import org.webrtc.VideoSource
 import org.webrtc.VideoTrack
@@ -100,7 +99,7 @@ class CreateOrJoinActivity : AppCompatActivity() {
             isWebcamEnabled = true
             btnWebcam!!.setImageResource(R.drawable.ic_video_camera)
             changeFloatingActionButtonLayout(btnWebcam, isWebcamEnabled)
-            updateCameraView(null)
+            Handler(Looper.getMainLooper()).postDelayed({updateCameraView(null) }, 150)
             }
 
         override fun onBlocked(
@@ -367,7 +366,8 @@ class CreateOrJoinActivity : AppCompatActivity() {
         } else {
             btnWebcam!!.setImageResource(R.drawable.ic_video_camera_off)
         }
-        updateCameraView(null)
+        Handler(Looper.getMainLooper()).postDelayed({updateCameraView(null) }, 150)
+
         changeFloatingActionButtonLayout(btnWebcam, isWebcamEnabled)
     }
 
@@ -376,14 +376,6 @@ class CreateOrJoinActivity : AppCompatActivity() {
         if (isWebcamEnabled) {
             cameraOffText?.visibility= View.GONE
             joinView!!.visibility = View.VISIBLE
-            // create PeerConnectionFactory
-            initializationOptions =
-                InitializationOptions.builder(this).createInitializationOptions()
-            PeerConnectionFactory.initialize(initializationOptions)
-            peerConnectionFactory = PeerConnectionFactory.builder().createPeerConnectionFactory()
-
-            val surfaceTextureHelper =
-                SurfaceTextureHelper.create("CaptureThread", PeerConnectionUtils.getEglContext())
 
             videoTrack = VideoSDK.createCameraVideoTrack(
                 "h720p_w960p",
@@ -407,43 +399,13 @@ class CreateOrJoinActivity : AppCompatActivity() {
         }
     }
 
-    private fun createCameraCapturer(): VideoCapturer? {
-        val enumerator = Camera1Enumerator(false)
-        val deviceNames = enumerator.deviceNames
-
-        // First, try to find front facing camera
-        for (deviceName in deviceNames) {
-            if (enumerator.isFrontFacing(deviceName)) {
-                val videoCapturer: VideoCapturer? = enumerator.createCapturer(deviceName, null)
-                if (videoCapturer != null) {
-                    return videoCapturer
-                }
-            }
-        }
-
-        // Front facing camera not found, try something else
-        for (deviceName in deviceNames) {
-            if (!enumerator.isFrontFacing(deviceName)) {
-                val videoCapturer: VideoCapturer? = enumerator.createCapturer(deviceName, null)
-                if (videoCapturer != null) {
-                    return videoCapturer
-                }
-            }
-        }
-        return null
-    }
-
     override fun onDestroy() {
         Log.d(TAG, "onDestroy crash")
-        if(videoTrack?.track?.state()?.equals("LIVE") == true)
-        {
-            Log.d(TAG, "onDestroyIf")
-            videoTrack?.track?.dispose()
-            videoTrack = null
-        }
+        videoTrack?.track?.dispose()
+        videoTrack = null
         joinView!!.removeTrack()
         joinView!!.releaseSurfaceViewRenderer()
-        closeCapturer()
+//        closeCapturer()
         super.onDestroy()
     }
 
@@ -452,36 +414,16 @@ class CreateOrJoinActivity : AppCompatActivity() {
         videoTrack = null
         joinView!!.removeTrack()
         joinView!!.releaseSurfaceViewRenderer()
-        closeCapturer()
+//        closeCapturer()
         super.onPause()
     }
 
     override fun onRestart() {
         Log.d(TAG, "onRestart: ")
-        updateCameraView(null)
+        Handler(Looper.getMainLooper()).postDelayed({updateCameraView(null) }, 150)
+
         super.onRestart()
     }
 
-    private fun closeCapturer() {
-        if (videoCapturer != null) {
-            try {
-                videoCapturer!!.stopCapture()
-            } catch (e: InterruptedException) {
-                throw RuntimeException(e)
-            }
-            videoCapturer!!.dispose()
-            videoCapturer = null
-        }
-        if (videoSource != null) {
-            videoSource!!.dispose()
-            videoSource = null
-        }
-        if (peerConnectionFactory != null) {
-            peerConnectionFactory!!.stopAecDump()
-            peerConnectionFactory!!.dispose()
-            peerConnectionFactory = null
-        }
-        PeerConnectionFactory.stopInternalTracingCapture()
-        PeerConnectionFactory.shutdownInternalTracer()
-    }
+   
 }

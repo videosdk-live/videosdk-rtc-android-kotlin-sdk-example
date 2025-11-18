@@ -115,7 +115,7 @@ class HelperClass {
                     video_stats = participant.shareStats
                 } else {
                     audio_stats = participant.audioStats
-                    video_stats = participant.videoStats
+                    video_stats = participant.videoStats.getJSONObject(0)
                 }
 
                 var score = 0

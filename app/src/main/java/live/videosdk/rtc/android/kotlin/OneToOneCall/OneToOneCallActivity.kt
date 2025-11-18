@@ -189,26 +189,26 @@ class OneToOneCallActivity : AppCompatActivity() {
         // pass the token generated from api server
         VideoSDK.config(token)
 
-        val customTracks: MutableMap<String, CustomStreamTrack> = HashMap()
-
-        val videoCustomTrack = VideoSDK.createCameraVideoTrack(
-            "h720p_w960p",
-            "front",
-            CustomStreamTrack.VideoMode.TEXT,
-            true,
-            this,VideoSDK.getSelectedVideoDevice()
-        )
-
-        Log.d("TAG", "onCreate: " + VideoSDK.getSelectedVideoDevice().label)
-        customTracks["video"] = videoCustomTrack
-
-        val audioCustomTrack = VideoSDK.createAudioTrack("high_quality", this)
-        customTracks["mic"] = audioCustomTrack
+//        val customTracks: MutableMap<String, CustomStreamTrack> = HashMap()
+//
+//        val videoCustomTrack = VideoSDK.createCameraVideoTrack(
+//            "h720p_w960p",
+//            "front",
+//            CustomStreamTrack.VideoMode.TEXT,
+//            true,
+//            this,VideoSDK.getSelectedVideoDevice()
+//        )
+//
+//        Log.d("TAG", "onCreate: " + VideoSDK.getSelectedVideoDevice().label)
+//        customTracks["video"] = videoCustomTrack
+//
+//        val audioCustomTrack = VideoSDK.createAudioTrack("high_quality", this)
+//        customTracks["mic"] = audioCustomTrack
 
         // create a new meeting instance
         meeting = VideoSDK.initMeeting(
             this@OneToOneCallActivity, meetingId, localParticipantName,
-            false, false, null, null, true,customTracks,null
+            false, false, null, null, true,null,null
         )
         meeting!!.addEventListener(meetingEventListener)
 
@@ -462,21 +462,21 @@ class OneToOneCallActivity : AppCompatActivity() {
                     })
 
 
-                    chatListener =
-                        PubSubMessageListener { pubSubMessage ->
-                            if (pubSubMessage.senderId != meeting!!.localParticipant.id) {
-                                val parentLayout = findViewById<View>(android.R.id.content)
-                                val snackbar = Snackbar.make(
-                                    parentLayout, (pubSubMessage.senderName + " says: " +
-                                            pubSubMessage.message), Snackbar.LENGTH_SHORT
-                                )
-                                    .setDuration(2000)
-                                val snackbarView = snackbar.view
-                                HelperClass.setSnackBarStyle(snackbarView, 0)
-                                snackbar.view.setOnClickListener { snackbar.dismiss() }
-                                snackbar.show()
-                            }
-                        }
+//                    chatListener =
+//                        PubSubMessageListener { pubSubMessage ->
+//                            if (pubSubMessage.senderId != meeting!!.localParticipant.id) {
+//                                val parentLayout = findViewById<View>(android.R.id.content)
+//                                val snackbar = Snackbar.make(
+//                                    parentLayout, (pubSubMessage.senderName + " says: " +
+//                                            pubSubMessage.message), Snackbar.LENGTH_SHORT
+//                                )
+//                                    .setDuration(2000)
+//                                val snackbarView = snackbar.view
+//                                HelperClass.setSnackBarStyle(snackbarView, 0)
+//                                snackbar.view.setOnClickListener { snackbar.dismiss() }
+//                                snackbar.show()
+//                            }
+//                        }
 
                     // notify user of any new messages
                     meeting!!.pubSub.subscribe("CHAT", chatListener)
@@ -1630,17 +1630,17 @@ class OneToOneCallActivity : AppCompatActivity() {
         })
 
         //
-        pubSubMessageListener = PubSubMessageListener { message ->
-            messageAdapter!!.addItem(message)
-            messageRcv.scrollToPosition(messageAdapter!!.itemCount - 1)
-        }
+//        pubSubMessageListener = PubSubMessageListener { message ->
+//            messageAdapter!!.addItem(message)
+//            messageRcv.scrollToPosition(messageAdapter!!.itemCount - 1)
+//        }
 
         // Subscribe for 'CHAT' topic
         val pubSubMessageList = meeting!!.pubSub.subscribe("CHAT", pubSubMessageListener)
 
         //
-        messageAdapter =
-            MessageAdapter(this, pubSubMessageList, meeting!!)
+//        messageAdapter =
+//            MessageAdapter(this, pubSubMessageList, meeting!!)
         messageRcv.adapter = messageAdapter
         messageRcv.addOnLayoutChangeListener { _: View?, _: Int, _: Int, _: Int, _: Int, _: Int, _: Int, _: Int, _: Int ->
             messageRcv.scrollToPosition(

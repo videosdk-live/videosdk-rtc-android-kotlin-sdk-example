@@ -418,89 +418,89 @@ class GroupCallActivity : AppCompatActivity() {
 
                 viewPager2!!.offscreenPageLimit = 1
                 viewPager2!!.adapter = viewAdapter
-                raiseHandListener =
-                    PubSubMessageListener { pubSubMessage ->
-                        val parentLayout = findViewById<View>(android.R.id.content)
-                        var snackbar: Snackbar
-                        if ((pubSubMessage.senderId == meeting!!.localParticipant.id)) {
-                            snackbar = Snackbar.make(
-                                parentLayout,
-                                "You raised hand",
-                                Snackbar.LENGTH_SHORT
-                            )
-                        } else {
-                            snackbar = Snackbar.make(
-                                parentLayout,
-                                pubSubMessage.senderName + " raised hand  ",
-                                Snackbar.LENGTH_LONG
-                            )
-                        }
+//                raiseHandListener =
+//                    PubSubMessageListener { pubSubMessage ->
+//                        val parentLayout = findViewById<View>(android.R.id.content)
+//                        var snackbar: Snackbar
+//                        if ((pubSubMessage.senderId == meeting!!.localParticipant.id)) {
+//                            snackbar = Snackbar.make(
+//                                parentLayout,
+//                                "You raised hand",
+//                                Snackbar.LENGTH_SHORT
+//                            )
+//                        } else {
+//                            snackbar = Snackbar.make(
+//                                parentLayout,
+//                                pubSubMessage.senderName + " raised hand  ",
+//                                Snackbar.LENGTH_LONG
+//                            )
+//                        }
 
-                        val snackbarLayout = snackbar.view
-                        val snackbarTextId = com.google.android.material.R.id.snackbar_text
-                        val textView = snackbarLayout.findViewById<View>(snackbarTextId) as TextView
-
-                        val drawable = resources.getDrawable(R.drawable.ic_raise_hand)
-                        drawable.setBounds(0, 0, 50, 65)
-                        textView.setCompoundDrawablesRelative(drawable, null, null, null)
-                        textView.compoundDrawablePadding = 15
-                        HelperClass.setSnackBarStyle(snackbar.view, 0)
-                        snackbar.isGestureInsetBottomIgnored = true
-                        snackbar.view.setOnClickListener { snackbar.dismiss() }
-                        snackbar.show()
-                    }
-
-                // notify user for raise hand
-                meeting!!.pubSub.subscribe("RAISE_HAND", raiseHandListener)
-                chatListener = PubSubMessageListener { pubSubMessage ->
-                    if (pubSubMessage.senderId != meeting!!.localParticipant.id) {
-                        val parentLayout = findViewById<View>(android.R.id.content)
-                        val snackbar = Snackbar.make(
-                            parentLayout, (pubSubMessage.senderName + " says: " +
-                                    pubSubMessage.message), Snackbar.LENGTH_SHORT
-                        )
-                            .setDuration(2000)
-                        val snackbarView = snackbar.view
-                        HelperClass.setSnackBarStyle(snackbarView, 0)
-                        snackbar.view.setOnClickListener { snackbar.dismiss() }
-                        snackbar.show()
-                    }
-                }
-                // notify user of any new messages
-                meeting!!.pubSub.subscribe("CHAT", chatListener)
-
-                //terminate meeting in 10 minutes
-                Handler().postDelayed({
-                    if (!isDestroyed) {
-                        val alertDialog = MaterialAlertDialogBuilder(
-                            this@GroupCallActivity,
-                            R.style.AlertDialogCustom
-                        ).create()
-                        alertDialog.setCanceledOnTouchOutside(false)
-                        val inflater = this@GroupCallActivity.layoutInflater
-                        val dialogView = inflater.inflate(R.layout.alert_dialog_layout, null)
-                        alertDialog.setView(dialogView)
-                        val title = dialogView.findViewById<View>(R.id.title) as TextView
-                        title.text = "Meeting Left"
-                        val message = dialogView.findViewById<View>(R.id.message) as TextView
-                        message.text = "Demo app limits meeting to 10 Minutes"
-                        val positiveButton = dialogView.findViewById<Button>(R.id.positiveBtn)
-                        positiveButton.text = "Ok"
-                        positiveButton.setOnClickListener {
-                            if (!isDestroyed) {
-                                ParticipantState.destroy()
-                                unSubscribeTopics()
-                                meeting!!.leave()
-                            }
-                            alertDialog.dismiss()
-                        }
-                        val negativeButton = dialogView.findViewById<Button>(R.id.negativeBtn)
-                        negativeButton.visibility = GONE
-                        alertDialog.show()
-                    }
-                }, 600000)
+//                        val snackbarLayout = snackbar.view
+//                        val snackbarTextId = com.google.android.material.R.id.snackbar_text
+//                        val textView = snackbarLayout.findViewById<View>(snackbarTextId) as TextView
+//
+//                        val drawable = resources.getDrawable(R.drawable.ic_raise_hand)
+//                        drawable.setBounds(0, 0, 50, 65)
+//                        textView.setCompoundDrawablesRelative(drawable, null, null, null)
+//                        textView.compoundDrawablePadding = 15
+//                        HelperClass.setSnackBarStyle(snackbar.view, 0)
+//                        snackbar.isGestureInsetBottomIgnored = true
+//                        snackbar.view.setOnClickListener { snackbar.dismiss() }
+//                        snackbar.show()
             }
+
+            // notify user for raise hand
+//                meeting!!.pubSub.subscribe("RAISE_HAND", raiseHandListener)
+//                chatListener = PubSubMessageListener { pubSubMessage ->
+//                    if (pubSubMessage.senderId != meeting!!.localParticipant.id) {
+//                        val parentLayout = findViewById<View>(android.R.id.content)
+//                        val snackbar = Snackbar.make(
+//                            parentLayout, (pubSubMessage.senderName + " says: " +
+//                                    pubSubMessage.message), Snackbar.LENGTH_SHORT
+//                        )
+//                            .setDuration(2000)
+//                        val snackbarView = snackbar.view
+//                        HelperClass.setSnackBarStyle(snackbarView, 0)
+//                        snackbar.view.setOnClickListener { snackbar.dismiss() }
+//                        snackbar.show()
+//                    }
+//                }
+            // notify user of any new messages
+            meeting!!.pubSub.subscribe("CHAT", chatListener)
+
+            //terminate meeting in 10 minutes
+            Handler().postDelayed({
+                if (!isDestroyed) {
+                    val alertDialog = MaterialAlertDialogBuilder(
+                        this@GroupCallActivity,
+                        R.style.AlertDialogCustom
+                    ).create()
+                    alertDialog.setCanceledOnTouchOutside(false)
+                    val inflater = this@GroupCallActivity.layoutInflater
+                    val dialogView = inflater.inflate(R.layout.alert_dialog_layout, null)
+                    alertDialog.setView(dialogView)
+                    val title = dialogView.findViewById<View>(R.id.title) as TextView
+                    title.text = "Meeting Left"
+                    val message = dialogView.findViewById<View>(R.id.message) as TextView
+                    message.text = "Demo app limits meeting to 10 Minutes"
+                    val positiveButton = dialogView.findViewById<Button>(R.id.positiveBtn)
+                    positiveButton.text = "Ok"
+                    positiveButton.setOnClickListener {
+                        if (!isDestroyed) {
+                            ParticipantState.destroy()
+                            unSubscribeTopics()
+                            meeting!!.leave()
+                        }
+                        alertDialog.dismiss()
+                    }
+                    val negativeButton = dialogView.findViewById<Button>(R.id.negativeBtn)
+                    negativeButton.visibility = GONE
+                    alertDialog.show()
+                }
+            }, 600000)
         }
+
 
         override fun onMeetingLeft() {
             handler.removeCallbacks(runnable!!)
@@ -1247,23 +1247,23 @@ class GroupCallActivity : AppCompatActivity() {
         })
 
         //
-        pubSubMessageListener = PubSubMessageListener { message ->
-            messageAdapter!!.addItem(message)
-            messageRcv.scrollToPosition(messageAdapter!!.itemCount - 1)
-        }
-
-        // Subscribe for 'CHAT' topic
-        val pubSubMessageList = meeting!!.pubSub.subscribe("CHAT", pubSubMessageListener)
-
-        //
-        messageAdapter =
-            MessageAdapter(this, pubSubMessageList, meeting!!)
-        messageRcv.adapter = messageAdapter
-        messageRcv.addOnLayoutChangeListener { _: View?, _: Int, _: Int, _: Int, _: Int, _: Int, _: Int, _: Int, _: Int ->
-            messageRcv.scrollToPosition(
-                messageAdapter!!.itemCount - 1
-            )
-        }
+//        pubSubMessageListener = PubSubMessageListener { message ->
+//            messageAdapter!!.addItem(message)
+//            messageRcv.scrollToPosition(messageAdapter!!.itemCount - 1)
+//        }
+//
+//        // Subscribe for 'CHAT' topic
+//        val pubSubMessageList = meeting!!.pubSub.subscribe("CHAT", pubSubMessageListener)
+//
+//        //
+//        messageAdapter =
+//            MessageAdapter(this, pubSubMessageList, meeting!!)
+//        messageRcv.adapter = messageAdapter
+//        messageRcv.addOnLayoutChangeListener { _: View?, _: Int, _: Int, _: Int, _: Int, _: Int, _: Int, _: Int, _: Int ->
+//            messageRcv.scrollToPosition(
+//                messageAdapter!!.itemCount - 1
+//            )
+//        }
         v3.findViewById<View>(R.id.btnSend).setOnClickListener {
             val message: String = etmessage!!.text.toString()
             if (message != "") {

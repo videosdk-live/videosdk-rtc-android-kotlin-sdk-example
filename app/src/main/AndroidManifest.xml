@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="live.videosdk.rtc.android.kotlin">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-feature
         android:name="android.hardware.camera"
@@ -28,6 +27,9 @@
         android:theme="@style/Theme.VideoSDKRTC"
         android:usesCleartextTraffic="true">
         <activity
+            android:name=".Common.Activity.MainActivity"
+            android:exported="false" />
+        <activity
             android:name=".GroupCall.Activity.GroupCallActivity"
             android:exported="false">
             <meta-data
@@ -47,7 +49,9 @@
         <activity
             android:name=".OneToOneCall.OneToOneCallActivity"
             android:screenOrientation="portrait" />
-        <service android:name=".Common.Service.ForegroundService"
+
+        <service
+            android:name=".Common.Service.ForegroundService"
             android:foregroundServiceType="camera|microphone"
             android:stopWithTask="true" />
 
