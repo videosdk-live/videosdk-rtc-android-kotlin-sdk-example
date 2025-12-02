@@ -1,18 +1,24 @@
 pluginManagement {
     repositories {
-        gradlePluginPortal()
         google()
         mavenCentral()
+        maven { url 'https://www.jitpack.io' }
+        maven { url "https://maven.aliyun.com/repository/jcenter" }
+        maven {
+            url = uri("https://central.sonatype.com/repository/maven-snapshots/")
+        }
     }
 }
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
+        google()
         mavenCentral()
+        maven { url 'https://www.jitpack.io' }
         maven { url "https://maven.aliyun.com/repository/jcenter" }
         maven {
-            url "https://plugins.gradle.org/m2/"
+            url = uri("https://central.sonatype.com/repository/maven-snapshots/")
         }
     }
 }

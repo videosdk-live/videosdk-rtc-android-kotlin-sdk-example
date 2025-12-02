@@ -10,6 +10,10 @@
     android:orientation="vertical"
     tools:context=".GroupCall.Activity.GroupCallActivity">
 
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize" />
+
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/material_toolbar"
         android:layout_width="match_parent"
