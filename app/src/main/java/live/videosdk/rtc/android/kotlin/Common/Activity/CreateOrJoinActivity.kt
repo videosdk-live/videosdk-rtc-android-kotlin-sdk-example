@@ -376,14 +376,6 @@ class CreateOrJoinActivity : AppCompatActivity() {
         if (isWebcamEnabled) {
             cameraOffText?.visibility= View.GONE
             joinView!!.visibility = View.VISIBLE
-            // create PeerConnectionFactory
-            initializationOptions =
-                InitializationOptions.builder(this).createInitializationOptions()
-            PeerConnectionFactory.initialize(initializationOptions)
-            peerConnectionFactory = PeerConnectionFactory.builder().createPeerConnectionFactory()
-
-            val surfaceTextureHelper =
-                SurfaceTextureHelper.create("CaptureThread", PeerConnectionUtils.getEglContext())
 
             videoTrack = VideoSDK.createCameraVideoTrack(
                 "h720p_w960p",
@@ -443,7 +435,6 @@ class CreateOrJoinActivity : AppCompatActivity() {
         }
         joinView!!.removeTrack()
         joinView!!.releaseSurfaceViewRenderer()
-        closeCapturer()
         super.onDestroy()
     }
 
@@ -452,7 +443,6 @@ class CreateOrJoinActivity : AppCompatActivity() {
         videoTrack = null
         joinView!!.removeTrack()
         joinView!!.releaseSurfaceViewRenderer()
-        closeCapturer()
         super.onPause()
     }
 
@@ -462,26 +452,4 @@ class CreateOrJoinActivity : AppCompatActivity() {
         super.onRestart()
     }
 
-    private fun closeCapturer() {
-        if (videoCapturer != null) {
-            try {
-                videoCapturer!!.stopCapture()
-            } catch (e: InterruptedException) {
-                throw RuntimeException(e)
-            }
-            videoCapturer!!.dispose()
-            videoCapturer = null
-        }
-        if (videoSource != null) {
-            videoSource!!.dispose()
-            videoSource = null
-        }
-        if (peerConnectionFactory != null) {
-            peerConnectionFactory!!.stopAecDump()
-            peerConnectionFactory!!.dispose()
-            peerConnectionFactory = null
-        }
-        PeerConnectionFactory.stopInternalTracingCapture()
-        PeerConnectionFactory.shutdownInternalTracer()
-    }
 }
