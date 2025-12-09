@@ -106,7 +106,7 @@ class HelperClass {
             .setOnClickListener { popupWindow.dismiss() }
         val tableLayoutView = linearView.getChildAt(1)
         val timer = Timer()
-        timer.scheduleAtFixedRate(object : TimerTask() {
+        timer.schedule(object : TimerTask() {
             override fun run() {
                 var audio_stats: JSONObject? = null
                 val video_stats: JSONObject
@@ -115,7 +115,7 @@ class HelperClass {
                     video_stats = participant.shareStats
                 } else {
                     audio_stats = participant.audioStats
-                    video_stats = participant.videoStats
+                    video_stats = participant.videoStats.get(0) as JSONObject
                 }
 
                 var score = 0

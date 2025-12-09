@@ -11,18 +11,22 @@ def localProperties = new Properties()
 localProperties.load(new FileInputStream(rootProject.file("local.properties")))
 
 android {
-    compileSdk 34
+    namespace "live.videosdk.rtc.android.kotlin"
+    compileSdk 36
 
     defaultConfig {
         applicationId "live.videosdk.rtc.android.kotlin"
         minSdk 21
-        targetSdk 33
+        targetSdk 36
         versionCode 1
         versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
     buildTypes {
         debug{
             buildConfigField("String", "AUTH_TOKEN", "\"" + localProperties['auth_token'] + "\"")
@@ -39,17 +43,17 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = '1.8'
+        jvmTarget = "17"
     }
 }
 
 dependencies {
 
-    implementation 'live.videosdk:rtc-android-sdk:0.5.1'
+    implementation 'live.videosdk:rtc-android-sdk:1.1.1'
 
     implementation 'com.nabinbhandari.android:permissions:3.8'
     implementation 'com.amitshekhar.android:android-networking:1.0.2'
@@ -59,7 +63,7 @@ dependencies {
     implementation 'com.google.android.material:material:1.7.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.cardview:cardview:1.0.0'
-    implementation 'pl.droidsonroids.gif:android-gif-drawable:1.2.22'
+    implementation 'pl.droidsonroids.gif:android-gif-drawable:1.2.29'
     implementation "com.airbnb.android:lottie:5.2.0"
 
     testImplementation 'junit:junit:4.13.2'

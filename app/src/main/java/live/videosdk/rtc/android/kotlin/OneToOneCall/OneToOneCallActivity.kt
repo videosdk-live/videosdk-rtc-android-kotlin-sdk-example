@@ -54,6 +54,7 @@ import live.videosdk.rtc.android.kotlin.R
 import live.videosdk.rtc.android.lib.AppRTCAudioManager
 import live.videosdk.rtc.android.lib.JsonUtils
 import live.videosdk.rtc.android.lib.MeetingState
+import live.videosdk.rtc.android.lib.PubSubMessage
 import live.videosdk.rtc.android.listeners.*
 import live.videosdk.rtc.android.model.PubSubPublishOptions
 import live.videosdk.rtc.android.permission.Permission
@@ -62,6 +63,7 @@ import live.videosdk.rtc.android.permission.Permissions
 import org.json.JSONObject
 import org.webrtc.VideoTrack
 import java.util.*
+import kotlin.collections.ArrayList
 import kotlin.math.roundToInt
 
 
@@ -462,8 +464,8 @@ class OneToOneCallActivity : AppCompatActivity() {
                     })
 
 
-                    chatListener =
-                        PubSubMessageListener { pubSubMessage ->
+                    chatListener = object : PubSubMessageListener {
+                        override fun onMessageReceived(pubSubMessage: PubSubMessage) {
                             if (pubSubMessage.senderId != meeting!!.localParticipant.id) {
                                 val parentLayout = findViewById<View>(android.R.id.content)
                                 val snackbar = Snackbar.make(
@@ -477,6 +479,11 @@ class OneToOneCallActivity : AppCompatActivity() {
                                 snackbar.show()
                             }
                         }
+
+                        override fun onOldMessagesReceived(messages: List<PubSubMessage>?) {
+                            // handle old messages
+                        }
+                    }
 
                     // notify user of any new messages
                     meeting!!.pubSub.subscribe("CHAT", chatListener)
@@ -1629,19 +1636,29 @@ class OneToOneCallActivity : AppCompatActivity() {
             override fun afterTextChanged(editable: Editable) {}
         })
 
+        messageAdapter = MessageAdapter(this, ArrayList(), meeting!!)
+        messageRcv.adapter = messageAdapter
+
         //
-        pubSubMessageListener = PubSubMessageListener { message ->
-            messageAdapter!!.addItem(message)
-            messageRcv.scrollToPosition(messageAdapter!!.itemCount - 1)
+        pubSubMessageListener = object : PubSubMessageListener {
+            override fun onMessageReceived(message: PubSubMessage) {
+                messageAdapter!!.addItem(message)
+                messageRcv.scrollToPosition(messageAdapter!!.itemCount - 1)
+            }
+
+            override fun onOldMessagesReceived(messages: List<PubSubMessage>?) {
+                messages?.forEach { message ->
+                    messageAdapter!!.addItem(message)
+                }
+                if ((messages?.size ?: 0) > 0) {
+                    messageRcv.scrollToPosition(messageAdapter!!.itemCount - 1)
+                }
+            }
         }
 
         // Subscribe for 'CHAT' topic
-        val pubSubMessageList = meeting!!.pubSub.subscribe("CHAT", pubSubMessageListener)
+        meeting!!.pubSub.subscribe("CHAT", pubSubMessageListener)
 
-        //
-        messageAdapter =
-            MessageAdapter(this, pubSubMessageList, meeting!!)
-        messageRcv.adapter = messageAdapter
         messageRcv.addOnLayoutChangeListener { _: View?, _: Int, _: Int, _: Int, _: Int, _: Int, _: Int, _: Int, _: Int ->
             messageRcv.scrollToPosition(
                 messageAdapter!!.itemCount - 1
