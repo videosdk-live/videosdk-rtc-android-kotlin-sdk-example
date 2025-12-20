@@ -100,11 +100,11 @@ class JoinMeetingFragment : Fragment() {
                                             intent.putExtra("meetingId", meetingId)
                                             intent.putExtra(
                                                 "webcamEnabled",
-                                                (activity as CreateOrJoinActivity?)!!.isWebcamEnabled
+                                                true
                                             )
                                             intent.putExtra(
                                                 "micEnabled",
-                                                (activity as CreateOrJoinActivity?)!!.isMicEnabled
+                                                true
                                             )
                                             intent.putExtra(
                                                 "participantName",

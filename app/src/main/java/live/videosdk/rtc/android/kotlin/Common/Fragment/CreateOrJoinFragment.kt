@@ -16,9 +16,9 @@ class CreateOrJoinFragment : Fragment() {
     ): View {
         val view: View = inflater.inflate(R.layout.fragment_create_or_join, container, false)
         view.findViewById<View>(R.id.btnCreateMeeting)
-            .setOnClickListener { (activity as CreateOrJoinActivity).createMeetingFragment() }
+            .setOnClickListener { /* (activity as CreateOrJoinActivity).createMeetingFragment() */ }
         view.findViewById<View>(R.id.btnJoinMeeting)
-            .setOnClickListener { (activity as CreateOrJoinActivity).joinMeetingFragment() }
+            .setOnClickListener { /* (activity as CreateOrJoinActivity).joinMeetingFragment() */ }
         // Inflate the layout for this fragment
         return view
     }
