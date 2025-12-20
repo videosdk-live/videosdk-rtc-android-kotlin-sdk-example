@@ -1,6 +1,7 @@
 package live.videosdk.rtc.android.kotlin.GroupCall.Fragment
 
 import android.annotation.SuppressLint
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -10,6 +11,7 @@ import android.widget.GridLayout
 import android.widget.ImageView
 import android.widget.PopupWindow
 import android.widget.TextView
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.cardview.widget.CardView
 import androidx.fragment.app.Fragment
 import androidx.viewpager2.widget.ViewPager2
@@ -178,16 +180,22 @@ class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragme
                 val ivMicStatus = participantView.findViewById<ImageView>(R.id.ivMicStatus)
                 //            GifImageView img_participantActiveSpeaker = participantView.findViewById(R.id.img_participantActiveSpeaker);
                 if (activeSpeaker == null) {
-                    participantCard.foreground = null
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        participantCard.foreground = null
+                    }
                     //                img_participantActiveSpeaker.setVisibility(View.GONE);
 //                ivMicStatus.setVisibility(View.VISIBLE);
                 } else {
                     if (participant.id == activeSpeaker.id) {
-                        participantCard.foreground = requireContext().getDrawable(R.drawable.layout_bg)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            participantCard.foreground = AppCompatResources.getDrawable(requireContext(), R.drawable.layout_bg)
+                        }
                         //                    ivMicStatus.setVisibility(View.GONE);
 //                    img_participantActiveSpeaker.setVisibility(View.VISIBLE);
                     } else {
-                        participantCard.foreground = null
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            participantCard.foreground = null
+                        }
                         //                    img_participantActiveSpeaker.setVisibility(View.GONE);
 //                    ivMicStatus.setVisibility(View.VISIBLE);
                     }
@@ -270,16 +278,22 @@ class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragme
 //           ImageView ivMicStatus = participantView.findViewById(R.id.ivMicStatus);
 //            GifImageView img_participantActiveSpeaker = participantView.findViewById(R.id.img_participantActiveSpeaker);
             if (activeSpeaker == null) {
-                participantCard.foreground = null
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    participantCard.foreground = null
+                }
 //                img_participantActiveSpeaker.setVisibility(View.GONE);
 //                ivMicStatus.setVisibility(View.VISIBLE);
             } else {
                 if (participant.id == activeSpeaker.id) {
-                    participantCard.foreground = requireContext().getDrawable(R.drawable.layout_bg)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        participantCard.foreground = AppCompatResources.getDrawable(requireContext(), R.drawable.layout_bg)
+                    }
 //                    ivMicStatus.setVisibility(View.GONE);
 //                    img_participantActiveSpeaker.setVisibility(View.VISIBLE);
                 } else {
-                    participantCard.foreground = null
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        participantCard.foreground = null
+                    }
 //                    img_participantActiveSpeaker.setVisibility(View.GONE);
 //                    ivMicStatus.setVisibility(View.VISIBLE);
                 }
@@ -320,7 +334,6 @@ class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragme
                     col++
                 }
             }
-            participantGridLayout!!.requestLayout()
         } else {
             var col = 0
             var row = 0
@@ -329,35 +342,28 @@ class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragme
                     participantGridLayout!!.getChildAt(i).layoutParams as GridLayout.LayoutParams
                 params.columnSpec = GridLayout.spec(col, 1, 1f)
                 params.rowSpec = GridLayout.spec(row, 1, 1f)
-                if (col + 1 == normalLayoutColumnCount) {
+                if (col + 1 == 2) {
                     col = 0
                     row++
                 } else {
                     col++
                 }
             }
-            participantGridLayout!!.requestLayout()
         }
     }
-
-    private val normalLayoutRowCount: Int
-        private get() = Math.min(Math.max(1, participantsView.size), 2)
-    private val normalLayoutColumnCount: Int
-        private get() {
-            val maxColumns = 2
-            val result = Math.max(
-                1,
-                (participantsView.size + normalLayoutRowCount - 1) / normalLayoutRowCount
-            )
-            check(result <= maxColumns) { "\${result} videos not allowed." }
-            return result
-        }
 
     private fun setQuality(quality: String) {
         val participants: Iterator<Participant> = meeting!!.participants.values.iterator()
         for (i in 0 until meeting!!.participants.size) {
             val participant = participants.next()
-            participant.quality = quality
+            participant.setQuality(quality)
         }
     }
+
+    private val quality: String
+        private get() = if (participantsView.size >= 4) {
+            "low"
+        } else {
+            "high"
+        }
 }
