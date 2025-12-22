@@ -21,7 +21,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import live.videosdk.rtc.android.kotlin.core.ui.theme.*
-import live.videosdk.rtc.android.kotlin.feature.hlsviewer.presentation.components.HlsStatsPanel
+import live.videosdk.rtc.android.kotlin.feature.hlsviewer.presentation.components.ComprehensiveHlsStatsPanel
 
 /**
  * HLS Viewer Screen with meeting integration
@@ -360,7 +360,7 @@ fun HlsViewerScreen(
                     }
 
                     // Stats Panel
-                    HlsStatsPanel(stats = uiState)
+                    ComprehensiveHlsStatsPanel(stats = uiState)
                 }
             }
 

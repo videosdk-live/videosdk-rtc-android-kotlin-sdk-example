@@ -14,10 +14,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import live.videosdk.rtc.android.Meeting
 import live.videosdk.rtc.android.VideoSDK
-import live.videosdk.rtc.android.listeners.MeetingEventListener
-import live.videosdk.rtc.android.hlsstats.HlsStatsCollector
-import live.videosdk.rtc.android.hlsstats.HlsStatsListener
 import live.videosdk.rtc.android.hlsstats.models.HlsPlaybackStats
+import live.videosdk.rtc.android.kotlin.feature.hlsviewer.domain.hlsstats.HlsStatsCollector
+import live.videosdk.rtc.android.kotlin.feature.hlsviewer.domain.hlsstats.HlsStatsListener
+import live.videosdk.rtc.android.listeners.MeetingEventListener
+
 
 /**
  * ViewModel for HLS Viewer with stats collection and meeting integration
@@ -36,72 +37,69 @@ class HlsStatsViewModel : ViewModel() {
     fun initializePlayer(player: ExoPlayer) {
         exoPlayer = player
         
-        // Use ExoPlayer's built-in analytics listener instead of HlsStatsCollector
-        // This runs on the main thread and avoids threading issues
-        player.addAnalyticsListener(object : androidx.media3.exoplayer.analytics.AnalyticsListener {
-            override fun onPlaybackStateChanged(
-                eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
-                state: Int
-            ) {
-                updatePlaybackStats()
-            }
-            
-            override fun onIsPlayingChanged(
-                eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
-                isPlaying: Boolean
-            ) {
-                updatePlaybackStats()
-            }
-            
-            override fun onVideoSizeChanged(
-                eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
-                videoSize: androidx.media3.common.VideoSize
-            ) {
-                updatePlaybackStats()
-            }
-            
-            override fun onBandwidthEstimate(
-                eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
-                totalLoadTimeMs: Int,
-                totalBytesLoaded: Long,
-                bitrateEstimate: Long
-            ) {
-                viewModelScope.launch {
-                    _uiState.update { it.copy(bitrate = bitrateEstimate) }
-                }
-            }
-        })
+        // Use custom HlsStatsCollector
+        statsCollector = HlsStatsCollector(player)
         
-        // Also add a regular Player.Listener for additional events
-        player.addListener(object : androidx.media3.common.Player.Listener {
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                updatePlaybackStats()
-            }
-            
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                updatePlaybackStats()
-            }
-        })
-    }
-    
-    @OptIn(UnstableApi::class)
-    private fun updatePlaybackStats() {
-        exoPlayer?.let { player ->
-            viewModelScope.launch {
-                val isBuffering = player.playbackState == androidx.media3.common.Player.STATE_BUFFERING
-                val isPlaying = player.isPlaying
-                val currentFormat = player.videoFormat
-                val bitrate = currentFormat?.bitrate?.toLong() ?: _uiState.value.bitrate
-                
-                _uiState.update { 
-                    it.copy(
-                        isBuffering = isBuffering,
-                        isPlaying = isPlaying,
-                        bitrate = bitrate
-                    )
+        // Add stats listener - maps all comprehensive stats
+        statsCollector?.addListener(object : HlsStatsListener {
+            override fun onStatsUpdate(stats: HlsPlaybackStats) {
+                viewModelScope.launch {
+                    _uiState.update { currentState ->
+                        currentState.copy(
+                            // Playback State
+                            isPlaying = stats.isPlaying,
+                            isBuffering = stats.isBuffering,
+                            playbackState = stats.playbackState,
+                            
+                            // Timing Information
+                            currentPositionMs = stats.currentPositionMs,
+                            durationMs = stats.durationMs,
+                            bufferedPositionMs = stats.bufferedPositionMs,
+                            
+                            // Quality Metrics
+                            videoWidth = stats.videoResolution?.width ?: 0,
+                            videoHeight = stats.videoResolution?.height ?: 0,
+                            frameRate = stats.videoResolution?.frameRate ?: 0f,
+                            bitrate = stats.bitrate,
+                            estimatedBandwidth = stats.bandwidth.estimatedBandwidthBps,
+                            totalBytesLoaded = stats.bandwidth.totalBytesLoaded,
+                            
+                            // Performance Metrics
+                            droppedFrames = stats.droppedFrames,
+                            totalFramesRendered = stats.totalFramesRendered,
+                            audioBufferMs = stats.bufferInfo.audioBufferMs,
+                            videoBufferMs = stats.bufferInfo.videoBufferMs,
+                            targetBufferMs = stats.bufferInfo.targetBufferMs,
+                            
+                            // HLS-specific
+                            isLive = stats.isLive,
+                            liveOffsetMs = stats.liveOffsetMs,
+                            
+                            // Session metrics
+                            joinTimeMs = stats.joinTimeMs,
+                            totalRebufferDurationMs = stats.totalRebufferDurationMs,
+                            rebufferCount = stats.rebufferCount,
+                            
+                            // Error tracking
+                            errorCount = stats.errors.size
+                        )
+                    }
                 }
             }
-        }
+
+            override fun onSessionEnded(finalStats: HlsPlaybackStats?) {
+                viewModelScope.launch {
+                    finalStats?.let { stats ->
+                        _uiState.update {
+                            it.copy(
+                                sessionEnded = true,
+                                totalRebuffers = stats.rebufferCount
+                            )
+                        }
+                    }
+                }
+            }
+        })
     }
 
     fun setMode(isHost: Boolean) {
@@ -220,20 +218,55 @@ class HlsStatsViewModel : ViewModel() {
 }
 
 /**
- * UI State for HLS Viewer with stats and meeting info
+ * UI State for HLS Viewer with comprehensive stats
  */
 data class HlsStatsUiState(
+    // Playback State
     val playbackUrl: String = "",
-    val bitrate: Long = 0,
-    val isBuffering: Boolean = false,
-    val rebufferCount: Int = 0,
     val isPlaying: Boolean = false,
-    val sessionEnded: Boolean = false,
-    val totalRebuffers: Int = 0,
+    val isBuffering: Boolean = false,
+    val playbackState: String = "IDLE",
+    
+    // Timing Information
+    val currentPositionMs: Long = 0,
+    val durationMs: Long = 0,
+    val bufferedPositionMs: Long = 0,
+    
+    // Quality Metrics
+    val videoWidth: Int = 0,
+    val videoHeight: Int = 0,
+    val frameRate: Float = 0f,
+    val bitrate: Long = 0,
+    val estimatedBandwidth: Long = 0,
+    val totalBytesLoaded: Long = 0,
+    
+    // Performance Metrics
+    val droppedFrames: Int = 0,
+    val totalFramesRendered: Int = 0,
+    val audioBufferMs: Long = 0,
+    val videoBufferMs: Long = 0,
+    val targetBufferMs: Long = 0,
+    
+    // HLS-specific
+    val isLive: Boolean = false,
+    val liveOffsetMs: Long? = null,
+    
+    // Session metrics
+    val joinTimeMs: Long = 0,
+    val totalRebufferDurationMs: Long = 0,
+    val rebufferCount: Int = 0,
+    
+    // Error tracking
+    val errorCount: Int = 0,
+    
     // Meeting-related
     val meetingId: String = "",
     val hlsState: String = "IDLE",
     val playbackHlsUrl: String = "",
     val isHost: Boolean = false,
-    val isMeetingJoined: Boolean = false
+    val isMeetingJoined: Boolean = false,
+    
+    // Session ended
+    val sessionEnded: Boolean = false,
+    val totalRebuffers: Int = 0
 )
