@@ -21,4 +21,5 @@ sealed class Screen(val route: String) {
             participantName: String
         ) = "one_to_one_call/$meetingId/$micEnabled/$webcamEnabled/$participantName"
     }
+    object HlsViewer : Screen("hls_viewer")
 }

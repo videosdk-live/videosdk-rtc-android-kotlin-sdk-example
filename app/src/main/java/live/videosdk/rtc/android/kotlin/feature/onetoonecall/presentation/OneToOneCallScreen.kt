@@ -78,16 +78,6 @@ fun OneToOneCallScreen(
                         }
                     },
                     actions = {
-                        // Remote hand raise indicator
-                        if (uiState.isRemoteHandRaised) {
-                            Icon(
-                                Icons.Default.PanTool,
-                                "Remote raised hand",
-                                tint = Color.Yellow,
-                                modifier = Modifier.padding(end = 8.dp)
-                            )
-                        }
-                        
                         IconButton(onClick = { viewModel.switchCamera() }) {
                             Icon(Icons.Rounded.Cameraswitch, "Switch Camera", tint = White)
                         }
@@ -171,13 +161,9 @@ fun OneToOneCallScreen(
                     OneToOneBottomControls(
                         micEnabled = uiState.micEnabled,
                         webcamEnabled = uiState.webcamEnabled,
-                        isScreenSharing = uiState.isScreenSharing,
-                        isHandRaised = uiState.isHandRaised,
                         unreadMessages = uiState.chatMessages.size,
                         onToggleMic = { viewModel.toggleMic() },
                         onToggleWebcam = { viewModel.toggleWebcam() },
-                        onToggleScreenShare = { viewModel.toggleScreenShare() },
-                        onToggleHandRaise = { viewModel.toggleHandRaise() },
                         onOpenChat = { viewModel.showChatSheet(true) },
                         onLeaveCall = onLeaveCall
                     )
@@ -215,13 +201,9 @@ fun OneToOneCallScreen(
 fun OneToOneBottomControls(
     micEnabled: Boolean,
     webcamEnabled: Boolean,
-    isScreenSharing: Boolean,
-    isHandRaised: Boolean,
     unreadMessages: Int,
     onToggleMic: () -> Unit,
     onToggleWebcam: () -> Unit,
-    onToggleScreenShare: () -> Unit,
-    onToggleHandRaise: () -> Unit,
     onOpenChat: () -> Unit,
     onLeaveCall: () -> Unit
 ) {
@@ -269,14 +251,6 @@ fun OneToOneBottomControls(
             backgroundColor = if (webcamEnabled) White else RedMd400,
             iconColor = if (webcamEnabled) Color.Black else White,
             onClick = onToggleWebcam
-        )
-
-        // Hand Raise
-        ControlButton(
-            icon = Icons.Default.PanTool,
-            backgroundColor = if (isHandRaised) Color.Yellow else Color.DarkGray,
-            iconColor = if (isHandRaised) Color.Black else White,
-            onClick = onToggleHandRaise
         )
     }
 }

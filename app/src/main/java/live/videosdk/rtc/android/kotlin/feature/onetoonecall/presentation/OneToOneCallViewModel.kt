@@ -10,6 +10,7 @@ import live.videosdk.rtc.android.Participant
 import live.videosdk.rtc.android.VideoSDK
 import live.videosdk.rtc.android.listeners.MeetingEventListener
 import live.videosdk.rtc.android.listeners.PubSubMessageListener
+import live.videosdk.rtc.android.model.PubSubPublishOptions
 import live.videosdk.rtc.android.mediaDevice.AudioDeviceInfo
 import org.json.JSONObject
 
@@ -172,17 +173,33 @@ class OneToOneCallViewModel : ViewModel() {
         val newState = !isRaised
         
         val localParticipant = meeting?.localParticipant
+        val localId = localParticipant?.id ?: ""
+        val localName = localParticipant?.displayName ?: "Unknown"
         
         // Publish hand raise state with sender info embedded in JSON
         val message = JSONObject().apply {
             put("raised", newState)
-            put("senderId", localParticipant?.id ?: "")
-            put("senderName", localParticipant?.displayName ?: "Unknown")
+            put("senderId", localId)
+            put("senderName", localName)
         }.toString()
         
-        meeting?.pubSub?.publish(handRaiseTopic, message, null)
+        val options = PubSubPublishOptions()
+        options.isPersist = false
+        meeting?.pubSub?.publish(handRaiseTopic, message, options)
         
-        _uiState.update { it.copy(isHandRaised = newState) }
+        // Update local state immediately for both isHandRaised and raisedHands map
+        _uiState.update { state ->
+            val updatedHands = state.raisedHands.toMutableMap()
+            if (newState) {
+                updatedHands[localId] = localName
+            } else {
+                updatedHands.remove(localId)
+            }
+            state.copy(
+                isHandRaised = newState,
+                raisedHands = updatedHands
+            )
+        }
     }
 
     fun sendChatMessage(message: String) {
@@ -196,7 +213,9 @@ class OneToOneCallViewModel : ViewModel() {
             put("senderName", localParticipant?.displayName ?: "Unknown")
         }.toString()
         
-        meeting?.pubSub?.publish(chatTopic, chatJson, null)
+        val options = PubSubPublishOptions()
+        options.isPersist = true
+        meeting?.pubSub?.publish(chatTopic, chatJson, options)
     }
 
     fun showChatSheet(show: Boolean) {
@@ -231,6 +250,7 @@ data class OneToOneCallUiState(
     val isRemoteHandRaised: Boolean = false,
     val presenterId: String? = null,
     val chatMessages: List<live.videosdk.rtc.android.kotlin.feature.groupcall.presentation.ChatMessage> = emptyList(),
+    val raisedHands: Map<String, String> = emptyMap(), // participantId -> name
     val showChatSheet: Boolean = false,
     val showAudioDeviceSheet: Boolean = false,
     val selectedAudioDevice: AudioDeviceInfo? = null,

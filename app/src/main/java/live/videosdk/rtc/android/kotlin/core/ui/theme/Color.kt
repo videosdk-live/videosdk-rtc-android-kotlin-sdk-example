@@ -25,6 +25,9 @@ val BlueGreyMd200 = Color(0xFFB0BBC5)
 // Text
 val TextColor = Color(0xFF9A9FA5)
 
+// Accent
+val ColorAccent = Color(0xFF03DAC6)
+
 // Common
 val White = Color(0xFFFFFFFF)
 val Black = Color(0xFF000000)

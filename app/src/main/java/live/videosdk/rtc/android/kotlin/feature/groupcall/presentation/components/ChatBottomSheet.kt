@@ -34,13 +34,13 @@ fun ChatBottomSheet(
     var messageText by remember { mutableStateOf("") }
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        modifier = Modifier.fillMaxHeight(0.8f)
+        onDismissRequest = onDismiss
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .padding(16.dp)
+                .padding(bottom = 32.dp) // Extra bottom padding for system nav
         ) {
             Text(
                 text = "Chat",
@@ -52,18 +52,20 @@ fun ChatBottomSheet(
             // Messages list
             LazyColumn(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .weight(1f, fill = false) // Don't force fill
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp), // Max height to ensure input is visible
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                reverseLayout = false
             ) {
                 items(messages) { message ->
                     ChatMessageItem(message)
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Message input
+            // Message input - always visible
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -88,8 +90,6 @@ fun ChatBottomSheet(
                     Icon(Icons.Default.Send, "Send")
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

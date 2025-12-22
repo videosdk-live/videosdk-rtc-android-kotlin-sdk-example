@@ -22,6 +22,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import live.videosdk.rtc.android.kotlin.core.ui.theme.VideoSDKTheme
+import live.videosdk.rtc.android.kotlin.core.ui.theme.ColorPrimary
+import live.videosdk.rtc.android.kotlin.core.ui.theme.White
 import live.videosdk.rtc.android.kotlin.feature.createjoin.presentation.components.CameraPreviewCard
 import live.videosdk.rtc.android.kotlin.feature.createjoin.presentation.components.CreateOrJoinOptions
 
@@ -33,6 +35,7 @@ import live.videosdk.rtc.android.kotlin.feature.createjoin.presentation.componen
 fun CreateOrJoinScreen(
     onNavigateToGroupCall: (String, Boolean, Boolean, String) -> Unit,
     onNavigateToOneToOneCall: (String, Boolean, Boolean, String) -> Unit,
+    onNavigateToHlsViewer: () -> Unit,
     viewModel: CreateOrJoinViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -99,6 +102,28 @@ fun CreateOrJoinScreen(
                 )
 
                 Spacer(modifier = Modifier.weight(1f))
+
+                // HLS Viewer Demo Button
+                Button(
+                    onClick = onNavigateToHlsViewer,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ColorPrimary,
+                        contentColor = White
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.VolumeUp,
+                        contentDescription = null,
+                        tint = White
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("HLS Viewer Demo", color = White)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Create or Join buttons
                 CreateOrJoinOptions(

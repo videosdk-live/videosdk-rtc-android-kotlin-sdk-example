@@ -12,6 +12,7 @@ import live.videosdk.rtc.android.Participant
 import live.videosdk.rtc.android.VideoSDK
 import live.videosdk.rtc.android.listeners.MeetingEventListener
 import live.videosdk.rtc.android.listeners.PubSubMessageListener
+import live.videosdk.rtc.android.model.PubSubPublishOptions
 import live.videosdk.rtc.android.mediaDevice.AudioDeviceInfo
 import org.json.JSONObject
 
@@ -74,10 +75,11 @@ class GroupCallViewModel : ViewModel() {
     }
 
     private fun subscribeToPubSubTopics() {
-        // Subscribe to chat messages  
+        // Subscribe to chat messages - old messages will be received via onOldMessagesReceived
         meeting?.pubSub?.subscribe(chatTopic, object : PubSubMessageListener {
             override fun onMessageReceived(pubSubMessage: live.videosdk.rtc.android.lib.PubSubMessage) {
                 try {
+                    android.util.Log.d("GroupCallViewModel", "Chat message received: ${pubSubMessage.message}")
                     val json = JSONObject(pubSubMessage.message)
                     val chatMessage = ChatMessage(
                         id = pubSubMessage.id,
@@ -87,15 +89,24 @@ class GroupCallViewModel : ViewModel() {
                         timestamp = pubSubMessage.timestamp
                     )
                     _uiState.update { state ->
-                        state.copy(chatMessages = state.chatMessages + chatMessage)
+                        // Avoid duplicates
+                        if (state.chatMessages.none { it.id == chatMessage.id }) {
+                            android.util.Log.d("GroupCallViewModel", "Adding chat message to state")
+                            state.copy(chatMessages = state.chatMessages + chatMessage)
+                        } else {
+                            android.util.Log.d("GroupCallViewModel", "Duplicate message, skipping")
+                            state
+                        }
                     }
                 } catch (e: Exception) {
+                    android.util.Log.e("GroupCallViewModel", "Error processing chat message", e)
                     e.printStackTrace()
                 }
             }
             
             override fun onOldMessagesReceived(messages: List<live.videosdk.rtc.android.lib.PubSubMessage>) {
-                // Handle old messages
+                // Handle old/persisted messages - these are messages published with isPersist=true
+                android.util.Log.d("GroupCallViewModel", "Received ${messages.size} old chat messages")
                 messages.forEach { onMessageReceived(it) }
             }
         })
@@ -106,13 +117,16 @@ class GroupCallViewModel : ViewModel() {
                 try {
                     val json = JSONObject(pubSubMessage.message)
                     val isRaised = json.optBoolean("raised", false)
+                    val senderId = json.optString("senderId", pubSubMessage.senderId)
+                    val senderName = json.optString("senderName", pubSubMessage.senderName)
                     
+                    // Update raised hands for ALL participants (including sender)
                     _uiState.update { state ->
                         val updatedHands = state.raisedHands.toMutableMap()
                         if (isRaised) {
-                            updatedHands[pubSubMessage.senderId] = pubSubMessage.senderName
+                            updatedHands[senderId] = senderName
                         } else {
-                            updatedHands.remove(pubSubMessage.senderId)
+                            updatedHands.remove(senderId)
                         }
                         state.copy(raisedHands = updatedHands)
                     }
@@ -198,31 +212,73 @@ class GroupCallViewModel : ViewModel() {
         val newState = !isRaised
         
         val localParticipant = meeting?.localParticipant
+        val localId = localParticipant?.id ?: ""
+        val localName = localParticipant?.displayName ?: "Unknown"
         
         // Publish hand raise state with sender info embedded in JSON
         val message = JSONObject().apply {
             put("raised", newState)
-            put("senderId", localParticipant?.id ?: "")
-            put("senderName", localParticipant?.displayName ?: "Unknown")
+            put("senderId", localId)
+            put("senderName", localName)
         }.toString()
         
-        meeting?.pubSub?.publish(handRaiseTopic, message, null)
+        val options = PubSubPublishOptions()
+        options.isPersist = false
+        meeting?.pubSub?.publish(handRaiseTopic, message, options)
         
-        _uiState.update { it.copy(isHandRaised = newState) }
+        // Update local state immediately for both isHandRaised and raisedHands map
+        _uiState.update { state ->
+            val updatedHands = state.raisedHands.toMutableMap()
+            if (newState) {
+                updatedHands[localId] = localName
+            } else {
+                updatedHands.remove(localId)
+            }
+            state.copy(
+                isHandRaised = newState,
+                raisedHands = updatedHands
+            )
+        }
     }
 
     fun sendChatMessage(message: String) {
         if (message.isBlank()) return
         
         val localParticipant = meeting?.localParticipant
+        val senderId = localParticipant?.id ?: ""
+        val senderName = localParticipant?.displayName ?: "Unknown"
         
+        // Create the chat message locally first so sender sees it immediately
+        val chatMessage = ChatMessage(
+            id = System.currentTimeMillis().toString(), // Temporary ID
+            senderId = senderId,
+            senderName = senderName,
+            message = message,
+            timestamp = System.currentTimeMillis()
+        )
+        
+        // Add to local state immediately
+        _uiState.update { state ->
+            state.copy(chatMessages = state.chatMessages + chatMessage)
+        }
+        
+        // Publish to PubSub for other participants
         val chatJson = JSONObject().apply {
             put("message", message)
-            put("senderId", localParticipant?.id ?: "")
-            put("senderName", localParticipant?.displayName ?: "Unknown")
+            put("senderId", senderId)
+            put("senderName", senderName)
         }.toString()
         
-        meeting?.pubSub?.publish(chatTopic, chatJson, null)
+        val options = PubSubPublishOptions()
+        options.isPersist = true
+        
+        try {
+            meeting?.pubSub?.publish(chatTopic, chatJson, options)
+            android.util.Log.d("GroupCallViewModel", "Chat message published: $message")
+        } catch (e: Exception) {
+            android.util.Log.e("GroupCallViewModel", "Failed to publish chat message", e)
+            e.printStackTrace()
+        }
     }
 
     fun showChatSheet(show: Boolean) {

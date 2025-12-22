@@ -9,6 +9,7 @@ import androidx.navigation.navArgument
 import live.videosdk.rtc.android.kotlin.feature.createjoin.presentation.CreateOrJoinScreen
 import live.videosdk.rtc.android.kotlin.feature.groupcall.presentation.GroupCallScreen
 import live.videosdk.rtc.android.kotlin.feature.onetoonecall.presentation.OneToOneCallScreen
+import live.videosdk.rtc.android.kotlin.feature.hlsviewer.presentation.HlsViewerScreen
 
 /**
  * Main navigation graph for the app
@@ -34,6 +35,9 @@ fun VideoSDKNavGraph(
                     navController.navigate(
                         Screen.OneToOneCall.createRoute(meetingId, micEnabled, webcamEnabled, participantName)
                     )
+                },
+                onNavigateToHlsViewer = {
+                    navController.navigate(Screen.HlsViewer.route)
                 }
             )
         }
@@ -78,6 +82,16 @@ fun VideoSDKNavGraph(
                 participantName = backStackEntry.arguments?.getString("participantName") ?: "Guest",
                 onLeaveCall = {
                     navController.popBackStack(Screen.CreateOrJoin.route, inclusive = false)
+                }
+            )
+        }
+
+        // HLS Viewer Screen
+        composable(Screen.HlsViewer.route) {
+            HlsViewerScreen(
+                token = token,
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }

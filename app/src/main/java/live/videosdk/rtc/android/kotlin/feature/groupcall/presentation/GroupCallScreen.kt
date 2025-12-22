@@ -155,6 +155,7 @@ fun GroupCallScreen(
                         // Participant grid
                         ParticipantGrid(
                             participants = uiState.participants,
+                            raisedHands = uiState.raisedHands,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -205,6 +206,7 @@ fun GroupCallScreen(
 @Composable
 fun ParticipantGrid(
     participants: List<live.videosdk.rtc.android.Participant>,
+    raisedHands: Map<String, String>,
     modifier: Modifier = Modifier
 ) {
     LazyVerticalGrid(
@@ -244,7 +246,8 @@ fun ParticipantGrid(
             ParticipantTile(
                 participant = participant,
                 videoTrack = videoTrack,
-                isLocal = false
+                isLocal = false,
+                hasHandRaised = raisedHands.containsKey(participant.id)
             )
         }
     }
