@@ -58,9 +58,38 @@ class HlsStatsViewModel : ViewModel() {
         hmsPlayerEventsCollector = PlayerEventsCollector(null, InitConfig(eventRate = 1000))
         hmsPlayerEventsCollector?.setExoPlayer(player)
         
+        // Add HMS collector as analytics listener to receive events
+        hmsPlayerEventsCollector?.let { collector ->
+            player.addAnalyticsListener(collector)
+        }
+        
         // Add CUSTOM stats listener - maps all comprehensive stats
         customStatsCollector?.addListener(object : HlsStatsListener {
             override fun onStatsUpdate(stats: HlsPlaybackStats) {
+                android.util.Log.d("CUSTOM_STATS", """
+                    ==============================================
+                    CUSTOM STATS UPDATE:
+                    ==============================================
+                    VideoInfo:
+                      - videoWidth: ${stats.videoResolution?.width}
+                      - videoHeight: ${stats.videoResolution?.height}
+                      - frameRate: ${stats.videoResolution?.frameRate}
+                      - averageBitrate: ${stats.bitrate}
+                    
+                    FrameInfo:
+                      - droppedFrameCount: ${stats.droppedFrames}
+                      - totalFrameCount: ${stats.totalFramesRendered}
+                    
+                    Bandwidth:
+                      - bandWidthEstimate: ${stats.bandwidth.estimatedBandwidthBps}
+                      - totalBytesLoaded: ${stats.bandwidth.totalBytesLoaded}
+                    
+                    Other:
+                      - bufferedDuration: ${stats.bufferInfo.videoBufferMs}
+                      - distanceFromLive: ${stats.liveOffsetMs}
+                    ==============================================
+                """.trimIndent())
+                
                 viewModelScope.launch {
                     _customUiState.update { currentState ->
                         currentState.copy(
@@ -123,6 +152,30 @@ class HlsStatsViewModel : ViewModel() {
         // Add 100ms PlayerStatsListener
         hmsPlayerEventsCollector?.addStatsListener(object : PlayerStatsListener {
             override fun onEventUpdate(playerStats: PlayerStatsModel) {
+                android.util.Log.d("HMS_STATS", """
+                    ==============================================
+                    HMS STATS UPDATE:
+                    ==============================================
+                    VideoInfo:
+                      - videoWidth: ${playerStats.videoInfo?.videoWidth}
+                      - videoHeight: ${playerStats.videoInfo?.videoHeight}
+                      - frameRate: ${playerStats.videoInfo?.frameRate}
+                      - averageBitrate: ${playerStats.videoInfo?.averageBitrate}
+                    
+                    FrameInfo:
+                      - droppedFrameCount: ${playerStats.frameInfo?.droppedFrameCount}
+                      - totalFrameCount: ${playerStats.frameInfo?.totalFrameCount}
+                    
+                    Bandwidth:
+                      - bandWidthEstimate: ${playerStats.bandwidth?.bandWidthEstimate}
+                      - totalBytesLoaded: ${playerStats.bandwidth?.totalBytesLoaded}
+                    
+                    Other:
+                      - bufferedDuration: ${playerStats.bufferedDuration}
+                      - distanceFromLive: ${playerStats.distanceFromLive}
+                    ==============================================
+                """.trimIndent())
+                
                 viewModelScope.launch {
                     _hmsUiState.update { currentState ->
                         currentState.copy(
@@ -144,6 +197,7 @@ class HlsStatsViewModel : ViewModel() {
             }
             
             override fun onError(error: live.hms.video.error.HMSException) {
+                android.util.Log.e("HMS_STATS", "HMS Stats Error: ${error.message}", error)
                 // 100ms SDK error - log or update error count
                 viewModelScope.launch {
                     _hmsUiState.update { it.copy(errorCount = it.errorCount + 1) }
