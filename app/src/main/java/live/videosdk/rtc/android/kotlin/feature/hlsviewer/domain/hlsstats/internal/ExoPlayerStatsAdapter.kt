@@ -21,8 +21,13 @@ internal class ExoPlayerStatsAdapter(
         keepHistory,
         null // No callback, we'll query stats directly
     )
+
     private val errorHistory = mutableListOf<PlaybackError>()
     private var sessionStartTimeMs: Long = System.currentTimeMillis()
+    
+    // Use exponential moving average for smooth bandwidth calculation
+    private var smoothedBandwidth: Long = 0
+    private val SMOOTHING_FACTOR = 0.3 // 30% new value, 70% old value
     
     init {
         player.addAnalyticsListener(playbackStatsListener)
@@ -99,12 +104,13 @@ internal class ExoPlayerStatsAdapter(
         // Bitrate: Current video quality bitrate (from format)
         val bitrate = videoFormat?.bitrate?.toLong() ?: 0L
         
-        // Bandwidth Estimate: Network speed (from actual data transfer)
-        val estimatedBandwidth = if (stats.totalBandwidthTimeMs > 0 && stats.totalBandwidthBytes > 0) {
+        // Bandwidth Estimate: TRUE network speed from actual data transfer
+        val estimatedBandwidth = if (stats.totalBandwidthTimeMs > 1000 && stats.totalBandwidthBytes > 0) {
             (stats.totalBandwidthBytes * 8000 / stats.totalBandwidthTimeMs)
         } else {
-            bitrate // Fallback to format bitrate if no bandwidth data yet
+            bitrate
         }
+        
         
         // Get bandwidth info
         val bandwidth = NetworkInfo(

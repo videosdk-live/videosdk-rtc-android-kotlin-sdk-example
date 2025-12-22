@@ -22,6 +22,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import live.videosdk.rtc.android.kotlin.core.ui.theme.*
 import live.videosdk.rtc.android.kotlin.feature.hlsviewer.presentation.components.ComprehensiveHlsStatsPanel
+import live.videosdk.rtc.android.kotlin.feature.hlsviewer.presentation.components.QualitySelectionDialog
+import live.videosdk.rtc.android.kotlin.feature.hlsviewer.presentation.components.StatsComparisonPanel
 
 /**
  * HLS Viewer Screen with meeting integration
@@ -36,10 +38,13 @@ fun HlsViewerScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
+    val customStats by viewModel.customUiState.collectAsState()
+    val hmsStats by viewModel.hmsUiState.collectAsState()
     
     var meetingId by remember { mutableStateOf("remq-6gbe-dnvy") }
     var participantName by remember { mutableStateOf("JetRTC") }
     var selectedMode by remember { mutableStateOf(0) } // 0 = Host, 1 = Viewer
+    var showQualityDialog by remember { mutableStateOf(false) }
     
     // Create ExoPlayer instance
     val exoPlayer = remember {
@@ -52,6 +57,14 @@ fun HlsViewerScreen(
         onDispose {
             exoPlayer.release()
         }
+    }
+    
+    // Quality selection dialog
+    if (showQualityDialog) {
+        QualitySelectionDialog(
+            player = exoPlayer,
+            onDismiss = { showQualityDialog = false }
+        )
     }
 
     Scaffold(
@@ -69,6 +82,18 @@ fun HlsViewerScreen(
                             imageVector = Icons.Default.ArrowBack,
                             contentDescription = "Back"
                         )
+                    }
+                },
+                actions = {
+                    // Quality selector button (only show when playing)
+                    if (uiState.isPlaying || uiState.playbackUrl.isNotEmpty()) {
+                        IconButton(onClick = { showQualityDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Quality Settings",
+                                tint = White
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -359,8 +384,11 @@ fun HlsViewerScreen(
                         )
                     }
 
-                    // Stats Panel
-                    ComprehensiveHlsStatsPanel(stats = uiState)
+                    // Stats Panel - Side-by-side comparison
+                    StatsComparisonPanel(
+                        customStats = customStats,
+                        hmsStats = hmsStats
+                    )
                 }
             }
 

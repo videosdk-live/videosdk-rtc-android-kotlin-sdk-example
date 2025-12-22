@@ -18,33 +18,51 @@ import live.videosdk.rtc.android.hlsstats.models.HlsPlaybackStats
 import live.videosdk.rtc.android.kotlin.feature.hlsviewer.domain.hlsstats.HlsStatsCollector
 import live.videosdk.rtc.android.kotlin.feature.hlsviewer.domain.hlsstats.HlsStatsListener
 import live.videosdk.rtc.android.listeners.MeetingEventListener
+import live.hms.stats.PlayerEventsCollector
+import live.hms.stats.PlayerStatsListener
+import live.hms.stats.model.PlayerStatsModel
+import live.hms.stats.model.InitConfig
 
 
 /**
  * ViewModel for HLS Viewer with stats collection and meeting integration
  * Supports both Host mode (start/stop HLS) and Viewer mode (watch HLS with stats)
  */
+@UnstableApi
 class HlsStatsViewModel : ViewModel() {
 
-    private val _uiState = MutableStateFlow(HlsStatsUiState())
-    val uiState: StateFlow<HlsStatsUiState> = _uiState.asStateFlow()
+    // Custom implementation stats
+    private val _customUiState = MutableStateFlow(HlsStatsUiState())
+    val customUiState: StateFlow<HlsStatsUiState> = _customUiState.asStateFlow()
+    
+    // 100ms implementation stats
+    private val _hmsUiState = MutableStateFlow(HlsStatsUiState())
+    val hmsUiState: StateFlow<HlsStatsUiState> = _hmsUiState.asStateFlow()
+    
+    // Legacy single state (uses custom)
+    val uiState: StateFlow<HlsStatsUiState> = _customUiState.asStateFlow()
 
     private var exoPlayer: ExoPlayer? = null
-    private var statsCollector: HlsStatsCollector? = null
+    private var customStatsCollector: HlsStatsCollector? = null
+    private var hmsPlayerEventsCollector: PlayerEventsCollector? = null
     private var meeting: Meeting? = null
 
     @OptIn(UnstableApi::class)
     fun initializePlayer(player: ExoPlayer) {
         exoPlayer = player
         
-        // Use custom HlsStatsCollector
-        statsCollector = HlsStatsCollector(player)
+        // Create CUSTOM stats collector
+        customStatsCollector = HlsStatsCollector(player)
         
-        // Add stats listener - maps all comprehensive stats
-        statsCollector?.addListener(object : HlsStatsListener {
+        // Create 100ms PlayerEventsCollector with null HMSSDK (standalone stats)
+        hmsPlayerEventsCollector = PlayerEventsCollector(null, InitConfig(eventRate = 1000))
+        hmsPlayerEventsCollector?.setExoPlayer(player)
+        
+        // Add CUSTOM stats listener - maps all comprehensive stats
+        customStatsCollector?.addListener(object : HlsStatsListener {
             override fun onStatsUpdate(stats: HlsPlaybackStats) {
                 viewModelScope.launch {
-                    _uiState.update { currentState ->
+                    _customUiState.update { currentState ->
                         currentState.copy(
                             // Playback State
                             isPlaying = stats.isPlaying,
@@ -90,7 +108,7 @@ class HlsStatsViewModel : ViewModel() {
             override fun onSessionEnded(finalStats: HlsPlaybackStats?) {
                 viewModelScope.launch {
                     finalStats?.let { stats ->
-                        _uiState.update {
+                        _customUiState.update {
                             it.copy(
                                 sessionEnded = true,
                                 totalRebuffers = stats.rebufferCount
@@ -100,16 +118,48 @@ class HlsStatsViewModel : ViewModel() {
                 }
             }
         })
+        
+        
+        // Add 100ms PlayerStatsListener
+        hmsPlayerEventsCollector?.addStatsListener(object : PlayerStatsListener {
+            override fun onEventUpdate(playerStats: PlayerStatsModel) {
+                viewModelScope.launch {
+                    _hmsUiState.update { currentState ->
+                        currentState.copy(
+                            // 100ms only provides: bandwidth, videoInfo, frameInfo, bufferedDuration, distanceFromLive
+                            videoWidth = playerStats.videoInfo?.videoWidth ?: 0,
+                            videoHeight = playerStats.videoInfo?.videoHeight ?: 0,
+                            frameRate = playerStats.videoInfo?.frameRate ?: 0f,
+                            bitrate = playerStats.videoInfo?.averageBitrate?.toLong() ?: 0L,
+                            estimatedBandwidth = playerStats.bandwidth?.bandWidthEstimate ?: 0L,
+                            totalBytesLoaded = playerStats.bandwidth?.totalBytesLoaded ?: 0L,
+                            droppedFrames = playerStats.frameInfo?.droppedFrameCount ?: 0,
+                            totalFramesRendered = playerStats.frameInfo?.totalFrameCount ?: 0,
+                            videoBufferMs = playerStats.bufferedDuration,
+                            isLive = playerStats.distanceFromLive > 0,
+                            liveOffsetMs = playerStats.distanceFromLive
+                        )
+                    }
+                }
+            }
+            
+            override fun onError(error: live.hms.video.error.HMSException) {
+                // 100ms SDK error - log or update error count
+                viewModelScope.launch {
+                    _hmsUiState.update { it.copy(errorCount = it.errorCount + 1) }
+                }
+            }
+        })
     }
 
     fun setMode(isHost: Boolean) {
-        _uiState.update { it.copy(isHost = isHost) }
+        _customUiState.update { it.copy(isHost = isHost) }
     }
 
     fun joinMeeting(context: Context, token: String, meetingId: String, participantName: String) {
         if (meetingId.isBlank()) return
         
-        _uiState.update { it.copy(meetingId = meetingId) }
+        _customUiState.update { it.copy(meetingId = meetingId) }
         
         // Configure VideoSDK with token
         VideoSDK.config(token)
@@ -131,7 +181,7 @@ class HlsStatsViewModel : ViewModel() {
         // Add meeting event listener
         meeting?.addEventListener(object : MeetingEventListener() {
             override fun onMeetingJoined() {
-                _uiState.update { it.copy(isMeetingJoined = true) }
+                _customUiState.update { it.copy(isMeetingJoined = true) }
             }
 
             override fun onHlsStateChanged(hlsState: org.json.JSONObject) {
@@ -141,11 +191,11 @@ class HlsStatsViewModel : ViewModel() {
                         val playbackUrl = hlsState.optString("playbackHlsUrl", "")
                         val livestreamUrl = hlsState.optString("livestreamUrl", "")
                         
-                        _uiState.update { it.copy(hlsState = status) }
+                        _customUiState.update { it.copy(hlsState = status) }
                         
                         // Auto-play when HLS is playable (for both host and viewer)
                         if (status == "HLS_PLAYABLE" && playbackUrl.isNotEmpty()) {
-                            _uiState.update { it.copy(playbackHlsUrl = playbackUrl) }
+                            _customUiState.update { it.copy(playbackHlsUrl = playbackUrl) }
                             playHlsStream(playbackUrl)
                         } else if (status == "HLS_STOPPED") {
                             stopPlayback()
@@ -157,7 +207,7 @@ class HlsStatsViewModel : ViewModel() {
             }
 
             override fun onMeetingLeft() {
-                _uiState.update { it.copy(isMeetingJoined = false) }
+                _customUiState.update { it.copy(isMeetingJoined = false) }
             }
         })
         
@@ -168,18 +218,18 @@ class HlsStatsViewModel : ViewModel() {
     fun startHls() {
         val config = org.json.JSONObject()
         meeting?.startHls(config, null)
-        _uiState.update { it.copy(hlsState = "HLS_STARTING") }
+        _customUiState.update { it.copy(hlsState = "HLS_STARTING") }
     }
 
     fun stopHls() {
         meeting?.stopHls()
-        _uiState.update { it.copy(hlsState = "HLS_STOPPING") }
+        _customUiState.update { it.copy(hlsState = "HLS_STOPPING") }
     }
 
     fun leaveMeeting() {
         meeting?.leave()
         meeting = null
-        _uiState.update {
+        _customUiState.update {
             it.copy(
                 isMeetingJoined = false,
                 hlsState = "IDLE",
@@ -191,7 +241,7 @@ class HlsStatsViewModel : ViewModel() {
     private fun playHlsStream(url: String) {
         if (url.isBlank()) return
         
-        _uiState.update { it.copy(playbackUrl = url, isPlaying = true) }
+        _customUiState.update { it.copy(playbackUrl = url, isPlaying = true) }
         
         exoPlayer?.apply {
             setMediaItem(MediaItem.fromUri(url))
@@ -202,17 +252,19 @@ class HlsStatsViewModel : ViewModel() {
 
     private fun stopPlayback() {
         exoPlayer?.stop()
-        _uiState.update { it.copy(isPlaying = false) }
+        _customUiState.update { it.copy(isPlaying = false) }
     }
 
     override fun onCleared() {
         super.onCleared()
         // Cleanup
         meeting?.leave()
-        statsCollector?.release()
+        customStatsCollector?.release()
+        hmsPlayerEventsCollector?.removeListener()
         exoPlayer?.release()
         meeting = null
-        statsCollector = null
+        customStatsCollector = null
+        hmsPlayerEventsCollector = null
         exoPlayer = null
     }
 }

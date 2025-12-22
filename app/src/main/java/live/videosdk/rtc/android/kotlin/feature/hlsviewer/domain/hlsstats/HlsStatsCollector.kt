@@ -4,6 +4,7 @@ import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import live.videosdk.rtc.android.kotlin.feature.hlsviewer.domain.hlsstats.internal.ExoPlayerStatsAdapter
 import live.videosdk.rtc.android.hlsstats.models.HlsPlaybackStats
@@ -33,6 +34,7 @@ import live.videosdk.rtc.android.hlsstats.models.HlsPlaybackStats
  * implementation 'androidx.media3:media3-ui:1.5.0'
  * ```
  */
+@UnstableApi
 class HlsStatsCollector(
     private val exoPlayer: ExoPlayer,
     private val config: HlsStatsConfig = HlsStatsConfig()

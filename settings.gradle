@@ -1,6 +1,6 @@
 pluginManagement {
     repositories {
-        mavenLocal()
+       // mavenLocal()
         google()
         mavenCentral()
         maven { url 'https://www.jitpack.io' }
@@ -10,11 +10,12 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        mavenLocal()
+      //  mavenLocal()
         google()
         mavenCentral()
         maven { url 'https://www.jitpack.io' }
         maven { url "https://maven.aliyun.com/repository/jcenter" }
+        maven { url "https://sdk.100ms.live/release" } // 100ms repository
     }
 }
 rootProject.name = "videosdk-rtc-android-kotlin-sdk-example"

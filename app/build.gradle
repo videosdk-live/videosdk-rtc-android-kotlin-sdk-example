@@ -16,7 +16,7 @@ android {
 
     defaultConfig {
         applicationId "live.videosdk.rtc.android.kotlin"
-        minSdk 21
+        minSdk 23
         targetSdk 36
         versionCode 1
         versionName "1.0"
@@ -65,9 +65,17 @@ dependencies {
     implementation 'com.amitshekhar.android:android-networking:1.0.2'
 
     // ExoPlayer for HLS playback
-    implementation 'androidx.media3:media3-exoplayer:1.2.0'
-    implementation 'androidx.media3:media3-exoplayer-hls:1.2.0'
-    implementation 'androidx.media3:media3-ui:1.2.0'
+    implementation 'androidx.media3:media3-exoplayer:1.9.0'
+    implementation 'androidx.media3:media3-exoplayer-hls:1.9.0'
+    implementation 'androidx.media3:media3-ui:1.9.0'
+    
+    // 100ms HLS Player Stats - commented out due to JitPack resolution issues
+    def hmsVersion = "2.9.79"
+    implementation "live.100ms:android-sdk:$hmsVersion"
+    implementation "live.100ms:hls-player-stats:$hmsVersion"
+
+
+
 
     // Compose BOM for unified version management
     implementation(platform("androidx.compose:compose-bom:2024.02.00")) // Or newer
