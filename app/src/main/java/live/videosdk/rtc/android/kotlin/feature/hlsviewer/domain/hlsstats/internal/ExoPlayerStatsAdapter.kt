@@ -1,5 +1,6 @@
 package live.videosdk.rtc.android.kotlin.feature.hlsviewer.domain.hlsstats.internal
 
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.Player
@@ -7,57 +8,62 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.PlaybackStats
 import androidx.media3.exoplayer.analytics.PlaybackStatsListener
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import live.videosdk.rtc.android.hlsstats.models.*
 
 /**
- * Internal adapter that bridges ExoPlayer's PlaybackStatsListener to our HLS stats model
+ * Optimized adapter for real-time HLS statistics.
+ * Focuses on sliding-window FPS and smoothed bandwidth estimation.
  */
 @UnstableApi
 internal class ExoPlayerStatsAdapter(
     private val player: ExoPlayer,
+    private val context: android.content.Context,
     private val keepHistory: Boolean = false
 ) {
+    private val TAG = "ExoPlayerStatsAdapter"
+
+    // ExoPlayer's internal meter for smoothed bitrate estimation
+    private val bandwidthMeter = DefaultBandwidthMeter.getSingletonInstance(context)
+
     private val playbackStatsListener: PlaybackStatsListener = PlaybackStatsListener(
         keepHistory,
-        null // No callback, we'll query stats directly
+        null
     )
 
     private val errorHistory = mutableListOf<PlaybackError>()
-    private var sessionStartTimeMs: Long = System.currentTimeMillis()
-    
-    // Track previous values for delta calculation
+
+    // FPS Tracking (Differential logic)
+    private var lastRenderedFrames: Int = 0
+    private var lastFrameCheckTimeMs: Long = System.currentTimeMillis()
+    private var lastCalculatedFps: Float = 0f
+
+    // Bandwidth Tracking
     private var lastBandwidthBytes: Long = 0
-    private var lastBandwidthTimeMs: Long = 0
     private var lastCheckTimeMs: Long = System.currentTimeMillis()
-    private var currentDownloadRateBps: Long = 0
-    private val SMOOTHING_FACTOR = 0.3 // 30% new value, 70% old value
-    
+    private var smoothedManualBitrate: Long = 0
+    private val SMOOTHING_FACTOR = 0.3 // Weight for new samples
+
     init {
         player.addAnalyticsListener(playbackStatsListener)
+        Log.d(TAG, "Stats Adapter initialized for player: ${player.hashCode()}")
     }
-    
-    /**
-     * Get current playback stats mapped to our HlsPlaybackStats model
-     */
+
     @OptIn(UnstableApi::class)
     fun getCurrentStats(): HlsPlaybackStats? {
         val exoStats = playbackStatsListener.playbackStats ?: return null
         return mapToHlsStats(exoStats)
     }
-    
-    /**
-     * Get combined stats for all playback sessions
-     */
+
     fun getCombinedStats(): HlsPlaybackStats {
         val exoStats = playbackStatsListener.combinedPlaybackStats
         return mapToHlsStats(exoStats)
     }
-    
-    /**
-     * Map ExoPlayer PlaybackStats to our HlsPlaybackStats model
-     */
+
     private fun mapToHlsStats(stats: PlaybackStats): HlsPlaybackStats {
-        // Get current player state
+        val currentTime = System.currentTimeMillis()
+
+        // 1. Playback State Logic
         val isPlaying = player.isPlaying
         val playbackState = when (player.playbackState) {
             Player.STATE_IDLE -> "idle"
@@ -66,167 +72,118 @@ internal class ExoPlayerStatsAdapter(
             Player.STATE_ENDED -> "ended"
             else -> "unknown"
         }
-        val isBuffering = player.playbackState == Player.STATE_BUFFERING
-        
-        // Get timing information
-        val currentPositionMs = player.currentPosition
-        val durationMs = if (player.duration != C.TIME_UNSET) player.duration else 0L
-        val bufferedPositionMs = player.bufferedPosition
-        
-        // Get video quality from current format
-        val videoFormat = player.videoFormat
-        
-        // Get FPS from decoder counters (actual rendered FPS, not format FPS)
-        val decoderCounters = try {
-            player.videoDecoderCounters
-        } catch (e: Exception) {
-            null
-        }
-        
-        val actualFrameRate = if (decoderCounters != null && decoderCounters.renderedOutputBufferCount > 0) {
-            // Calculate actual FPS from rendered frames and elapsed time
-            val elapsedTimeSec = (System.currentTimeMillis() - sessionStartTimeMs) / 1000.0
-            if (elapsedTimeSec > 1.0) {
-                val fps = (decoderCounters.renderedOutputBufferCount / elapsedTimeSec).toFloat()
-                if (fps > 60f) 60f else fps  // Cap at 60 FPS
-            } else {
-                videoFormat?.frameRate ?: 30f
+
+        // 2. Real-time FPS Calculation (Sliding Window)
+        val decoderCounters = try { player.videoDecoderCounters } catch (e: Exception) { null }
+        val currentRendered = decoderCounters?.renderedOutputBufferCount ?: 0
+        val frameDeltaTimeSec = (currentTime - lastFrameCheckTimeMs) / 1000.0
+
+        if (frameDeltaTimeSec >= 0.8) { // Update FPS roughly every second
+            val framesInInterval = currentRendered - lastRenderedFrames
+            lastCalculatedFps = (framesInInterval / frameDeltaTimeSec).toFloat().coerceIn(0f, 60f)
+
+            // Log frame performance if dropping significantly
+            val formatFps = player.videoFormat?.frameRate ?: 30f
+            if (lastCalculatedFps < (formatFps * 0.8) && isPlaying) {
+                Log.w(TAG, "Low FPS detected: $lastCalculatedFps (Target: $formatFps)")
             }
-        } else {
-            videoFormat?.frameRate ?: 30f
+
+            lastRenderedFrames = currentRendered
+            lastFrameCheckTimeMs = currentTime
         }
-        
-        val videoResolution = if (videoFormat != null && videoFormat.width > 0 && videoFormat.height > 0) {
+
+        val videoFormat = player.videoFormat
+        val videoResolution = if (videoFormat != null && videoFormat.width > 0) {
             VideoQuality(
                 width = videoFormat.width,
                 height = videoFormat.height,
-                frameRate = if (actualFrameRate > 0) actualFrameRate else 30f // Default to 30 if unknown
+                frameRate = if (lastCalculatedFps > 0) lastCalculatedFps else videoFormat.frameRate
             )
         } else null
-        
-        // Bitrate: Current video quality bitrate (from format)
-        val bitrate = videoFormat?.bitrate?.toLong() ?: 0L
-        
-        // Calculate CURRENT download rate (not cumulative)
-        val currentTimeMs = System.currentTimeMillis()
-        val deltaBytes = stats.totalBandwidthBytes - lastBandwidthBytes
-        val deltaTimeMs = currentTimeMs - lastCheckTimeMs
-        
-        // Update download rate if enough time has passed (every ~500ms)
-        if (deltaTimeMs >= 500) {
-            if (deltaBytes > 0) {
-                // New data downloaded - update rate
-                currentDownloadRateBps = (deltaBytes * 8000 / deltaTimeMs) // bits per second
+
+        // 3. Bandwidth Estimation
+        // Primary: Use ExoPlayer's built-in BandwidthMeter (Weighted moving average)
+        var estimatedBandwidth = bandwidthMeter.bitrateEstimate
+
+        // Secondary Fallback: Manual smoothing if Meter isn't ready
+        val byteDelta = stats.totalBandwidthBytes - lastBandwidthBytes
+        val timeDeltaMs = currentTime - lastCheckTimeMs
+
+        if (timeDeltaMs >= 1000) {
+            if (byteDelta > 0) {
+                val instantBps = (byteDelta * 8000 / timeDeltaMs)
+                smoothedManualBitrate = if (smoothedManualBitrate == 0L) instantBps
+                else ((instantBps * SMOOTHING_FACTOR) + (smoothedManualBitrate * (1 - SMOOTHING_FACTOR))).toLong()
             }
-            // Always update tracking values even if no new data
             lastBandwidthBytes = stats.totalBandwidthBytes
-            lastCheckTimeMs = currentTimeMs
+            lastCheckTimeMs = currentTime
         }
-        
-        // Bandwidth Estimate: Use current download rate if available, otherwise average
-        val estimatedBandwidth = if (currentDownloadRateBps > 0) {
-            currentDownloadRateBps
-        } else if (stats.totalBandwidthTimeMs > 1000 && stats.totalBandwidthBytes > 0) {
-            (stats.totalBandwidthBytes * 8000 / stats.totalBandwidthTimeMs)
-        } else {
-            bitrate // Fallback to current bitrate
+
+        // If BandwidthMeter hasn't collected enough samples, use manual smoothed bitrate
+        if (estimatedBandwidth == 0L || estimatedBandwidth < 100) {
+            estimatedBandwidth = if (smoothedManualBitrate > 0) smoothedManualBitrate else videoFormat?.bitrate?.toLong() ?: 0L
         }
-        
-        // Get bandwidth info - show bits/sec converted to bytes/sec
-        // Maintain last valid rate (don't drop to zero between chunk downloads)
+
         val bandwidth = NetworkInfo(
             estimatedBandwidthBps = estimatedBandwidth,
-            totalBytesLoaded = currentDownloadRateBps / 8 // Convert bits/sec to bytes/sec
+            totalBytesLoaded = stats.totalBandwidthBytes
         )
-        
-        // Get performance metrics - use actual decoder counters
-        val droppedFrames = decoderCounters?.droppedBufferCount?.toInt() ?: stats.totalDroppedFrames.toInt()
-        val totalFramesRendered = decoderCounters?.renderedOutputBufferCount?.toInt() ?: 0
-        
-        // Buffer info - differentiate between total buffered and internal buffers
-        val totalBufferedDurationMs = bufferedPositionMs - currentPositionMs
-        
-        // ExoPlayer doesn't expose separate audio/video buffers, but we can estimate
-        // Video typically needs more buffer than audio
-        val videoBufferMs = (totalBufferedDurationMs * 0.8).toLong() // 80% for video
-        val audioBufferMs = (totalBufferedDurationMs * 0.2).toLong() // 20% for audio
-        
+
+        // 4. Buffer & Performance
+        val currentPositionMs = player.currentPosition
+        val bufferedPositionMs = player.bufferedPosition
+        val totalBufferedDurationMs = (bufferedPositionMs - currentPositionMs).coerceAtLeast(0)
+
         val bufferInfo = BufferInfo(
-            audioBufferMs = audioBufferMs,
-            videoBufferMs = videoBufferMs,
-            targetBufferMs = totalBufferedDurationMs // Total buffered ahead
+            audioBufferMs = (totalBufferedDurationMs * 0.5).toLong(), // More realistic 50/50 split for HLS TS
+            videoBufferMs = (totalBufferedDurationMs * 0.5).toLong(),
+            targetBufferMs = totalBufferedDurationMs
         )
-        
-        // HLS-specific - better live offset calculation
+
+        val droppedFrames = decoderCounters?.droppedBufferCount ?: stats.totalDroppedFrames.toInt()
+
+        // 5. Live Offset
         val isLive = player.isCurrentMediaItemLive
         val liveOffsetMs = if (isLive) {
-            // For HLS, calculate distance from live edge
-            val currentOffset = player.currentLiveOffset
-            if (currentOffset != C.TIME_UNSET && currentOffset > 0) {
-                currentOffset
-            } else {
-                // Fallback: estimate from duration and position
-                val totalDuration = if (durationMs > 0) durationMs else 0L
-                if (totalDuration > 0) {
-                    totalDuration - currentPositionMs
-                } else {
-                    0L
-                }
-            }
+            val offset = player.currentLiveOffset
+            if (offset != C.TIME_UNSET) offset else (player.duration - currentPositionMs).coerceAtLeast(0)
         } else null
-        
-        // Session metrics  
-        val joinTimeMs = stats.totalValidJoinTimeMs
-        val totalRebufferDurationMs = stats.totalRebufferTimeMs
-        val rebufferCount = stats.totalRebufferCount
-        
+
         return HlsPlaybackStats(
             isPlaying = isPlaying,
-            isBuffering = isBuffering,
+            isBuffering = (player.playbackState == Player.STATE_BUFFERING),
             playbackState = playbackState,
             currentPositionMs = currentPositionMs,
-            durationMs = durationMs,
+            durationMs = if (player.duration != C.TIME_UNSET) player.duration else 0L,
             bufferedPositionMs = bufferedPositionMs,
             videoResolution = videoResolution,
-            bitrate = bitrate,
+            bitrate = videoFormat?.bitrate?.toLong() ?: 0L,
             bandwidth = bandwidth,
             droppedFrames = droppedFrames,
-            totalFramesRendered = totalFramesRendered,
+            totalFramesRendered = currentRendered,
             bufferInfo = bufferInfo,
             isLive = isLive,
             liveOffsetMs = liveOffsetMs,
             errors = errorHistory.toList(),
-            joinTimeMs = joinTimeMs,
-            totalRebufferDurationMs = totalRebufferDurationMs,
-            rebufferCount = rebufferCount,
-            timestampMs = System.currentTimeMillis()
-        )
+            joinTimeMs = stats.totalValidJoinTimeMs,
+            totalRebufferDurationMs = stats.totalRebufferTimeMs,
+            rebufferCount = stats.totalRebufferCount,
+            timestampMs = currentTime
+        ).also {
+            // Optional: verbose logging for debugging
+            // Log.v(TAG, "Stats: FPS=${it.videoResolution?.frameRate}, BW=${it.bandwidth.estimatedBandwidthBps/1000}kbps")
+        }
     }
-    
-    /**
-     * Track a playback error
-     */
+
     fun trackError(code: Int, message: String) {
-        errorHistory.add(
-            PlaybackError(
-                code = code,
-                message = message,
-                timestamp = System.currentTimeMillis()
-            )
-        )
+        Log.e(TAG, "Tracking Error: $code - $message")
+        errorHistory.add(PlaybackError(code, message, System.currentTimeMillis()))
     }
-    
-    /**
-     * Clear error history
-     */
-    fun clearErrors() {
-        errorHistory.clear()
-    }
-    
-    /**
-     * Release resources
-     */
+
+    fun clearErrors() { errorHistory.clear() }
+
     fun release() {
+        Log.d(TAG, "Releasing Stats Adapter")
         player.removeAnalyticsListener(playbackStatsListener)
         errorHistory.clear()
     }

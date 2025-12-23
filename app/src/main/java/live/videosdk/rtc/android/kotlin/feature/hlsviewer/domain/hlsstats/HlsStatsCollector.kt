@@ -37,10 +37,11 @@ import live.videosdk.rtc.android.hlsstats.models.HlsPlaybackStats
 @UnstableApi
 class HlsStatsCollector(
     private val exoPlayer: ExoPlayer,
+    private val context: android.content.Context,
     private val config: HlsStatsConfig = HlsStatsConfig()
 ) {
     private val listeners = mutableListOf<HlsStatsListener>()
-    private val statsAdapter: ExoPlayerStatsAdapter = ExoPlayerStatsAdapter(exoPlayer, config.keepHistory)
+    private val statsAdapter: ExoPlayerStatsAdapter = ExoPlayerStatsAdapter(exoPlayer, context, config.keepHistory)
     private val mainHandler = Handler(Looper.getMainLooper())
     private var isReleased = false
     

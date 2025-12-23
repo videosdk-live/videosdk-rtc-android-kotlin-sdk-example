@@ -2,7 +2,8 @@ package live.videosdk.rtc.android.kotlin.feature.hlsviewer.presentation
 
 import android.content.Context
 import androidx.annotation.OptIn
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
+import android.app.Application
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
@@ -29,7 +30,7 @@ import live.hms.stats.model.InitConfig
  * Supports both Host mode (start/stop HLS) and Viewer mode (watch HLS with stats)
  */
 @UnstableApi
-class HlsStatsViewModel : ViewModel() {
+class HlsStatsViewModel(application: Application) : AndroidViewModel(application) {
 
     // Custom implementation stats
     private val _customUiState = MutableStateFlow(HlsStatsUiState())
@@ -52,7 +53,7 @@ class HlsStatsViewModel : ViewModel() {
         exoPlayer = player
         
         // Create CUSTOM stats collector
-        customStatsCollector = HlsStatsCollector(player)
+        customStatsCollector = HlsStatsCollector(player, getApplication())
         
         // Create 100ms PlayerEventsCollector with null HMSSDK (standalone stats)
         hmsPlayerEventsCollector = PlayerEventsCollector(null, InitConfig(eventRate = 1000))
