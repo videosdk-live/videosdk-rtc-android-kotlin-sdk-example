@@ -25,8 +25,11 @@ internal class ExoPlayerStatsAdapter(
     private val errorHistory = mutableListOf<PlaybackError>()
     private var sessionStartTimeMs: Long = System.currentTimeMillis()
     
-    // Use exponential moving average for smooth bandwidth calculation
-    private var smoothedBandwidth: Long = 0
+    // Track previous values for delta calculation
+    private var lastBandwidthBytes: Long = 0
+    private var lastBandwidthTimeMs: Long = 0
+    private var lastCheckTimeMs: Long = System.currentTimeMillis()
+    private var currentDownloadRateBps: Long = 0
     private val SMOOTHING_FACTOR = 0.3 // 30% new value, 70% old value
     
     init {
@@ -104,18 +107,36 @@ internal class ExoPlayerStatsAdapter(
         // Bitrate: Current video quality bitrate (from format)
         val bitrate = videoFormat?.bitrate?.toLong() ?: 0L
         
-        // Bandwidth Estimate: TRUE network speed from actual data transfer
-        val estimatedBandwidth = if (stats.totalBandwidthTimeMs > 1000 && stats.totalBandwidthBytes > 0) {
-            (stats.totalBandwidthBytes * 8000 / stats.totalBandwidthTimeMs)
-        } else {
-            bitrate
+        // Calculate CURRENT download rate (not cumulative)
+        val currentTimeMs = System.currentTimeMillis()
+        val deltaBytes = stats.totalBandwidthBytes - lastBandwidthBytes
+        val deltaTimeMs = currentTimeMs - lastCheckTimeMs
+        
+        // Update download rate if enough time has passed (every ~500ms)
+        if (deltaTimeMs >= 500) {
+            if (deltaBytes > 0) {
+                // New data downloaded - update rate
+                currentDownloadRateBps = (deltaBytes * 8000 / deltaTimeMs) // bits per second
+            }
+            // Always update tracking values even if no new data
+            lastBandwidthBytes = stats.totalBandwidthBytes
+            lastCheckTimeMs = currentTimeMs
         }
         
+        // Bandwidth Estimate: Use current download rate if available, otherwise average
+        val estimatedBandwidth = if (currentDownloadRateBps > 0) {
+            currentDownloadRateBps
+        } else if (stats.totalBandwidthTimeMs > 1000 && stats.totalBandwidthBytes > 0) {
+            (stats.totalBandwidthBytes * 8000 / stats.totalBandwidthTimeMs)
+        } else {
+            bitrate // Fallback to current bitrate
+        }
         
-        // Get bandwidth info
+        // Get bandwidth info - show bits/sec converted to bytes/sec
+        // Maintain last valid rate (don't drop to zero between chunk downloads)
         val bandwidth = NetworkInfo(
             estimatedBandwidthBps = estimatedBandwidth,
-            totalBytesLoaded = stats.totalBandwidthBytes
+            totalBytesLoaded = currentDownloadRateBps / 8 // Convert bits/sec to bytes/sec
         )
         
         // Get performance metrics - use actual decoder counters
