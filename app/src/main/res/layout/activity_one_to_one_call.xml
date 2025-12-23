@@ -8,7 +8,7 @@
     android:animateLayoutChanges="true"
     android:gravity="center"
     android:orientation="vertical"
-    tools:context=".OneToOneCall.OneToOneCallActivity">
+    tools:context=".legacy.OneToOneCall.OneToOneCallActivity">
 
     <View
         android:layout_width="match_parent"
