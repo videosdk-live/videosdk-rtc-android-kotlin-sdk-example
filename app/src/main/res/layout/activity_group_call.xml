@@ -8,7 +8,7 @@
     android:animateLayoutChanges="true"
     android:gravity="center"
     android:orientation="vertical"
-    tools:context=".legacy.GroupCall.Activity.GroupCallActivity">
+    tools:context=".GroupCall.Activity.GroupCallActivity">
 
     <View
         android:layout_width="match_parent"
