@@ -68,7 +68,8 @@ dependencies {
     implementation 'androidx.media3:media3-exoplayer:1.9.0'
     implementation 'androidx.media3:media3-exoplayer-hls:1.9.0'
     implementation 'androidx.media3:media3-ui:1.9.0'
-    
+    implementation 'androidx.compose.material3:material3:1.4.0'
+
     // 100ms HLS Player Stats - commented out due to JitPack resolution issues
     def hmsVersion = "2.9.79"
     implementation "live.100ms:android-sdk:$hmsVersion"

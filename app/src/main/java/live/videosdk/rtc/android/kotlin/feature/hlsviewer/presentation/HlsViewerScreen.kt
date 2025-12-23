@@ -41,7 +41,7 @@ fun HlsViewerScreen(
     val customStats by viewModel.customUiState.collectAsState()
     val hmsStats by viewModel.hmsUiState.collectAsState()
     
-    var meetingId by remember { mutableStateOf("remq-6gbe-dnvy") }
+    var meetingId by remember { mutableStateOf("") }
     var participantName by remember { mutableStateOf("JetRTC") }
     var selectedMode by remember { mutableStateOf(0) } // 0 = Host, 1 = Viewer
     var showQualityDialog by remember { mutableStateOf(false) }
@@ -326,7 +326,7 @@ fun HlsViewerScreen(
                             ) {
                                 // Start HLS Button
                                 Button(
-                                    onClick = { viewModel.startHls(exoPlayer) },
+                                    onClick = { viewModel.startHls() },
                                     modifier = Modifier.weight(1f),
                                     enabled = uiState.hlsState == "IDLE" || uiState.hlsState == "HLS_STOPPED",
                                     colors = ButtonDefaults.buttonColors(

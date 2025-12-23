@@ -309,6 +309,15 @@ class HlsStatsViewModel(application: Application) : AndroidViewModel(application
 
     private fun stopPlayback() {
         exoPlayer?.stop()
+        
+        // Release stats collectors to remove listeners
+        customStatsCollector?.release()
+        customStatsCollector = null
+        
+        // Remove HMS listener before nullifying
+        hmsPlayerEventsCollector?.removeListener()
+        hmsPlayerEventsCollector = null
+        
         _customUiState.update { it.copy(isPlaying = false) }
     }
 
