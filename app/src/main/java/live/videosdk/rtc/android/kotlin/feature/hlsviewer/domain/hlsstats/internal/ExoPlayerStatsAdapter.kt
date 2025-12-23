@@ -104,17 +104,26 @@ internal class ExoPlayerStatsAdapter(
         // 3. Bandwidth Estimation
         // Primary: Use ExoPlayer's built-in BandwidthMeter (Weighted moving average)
         var estimatedBandwidth = bandwidthMeter.bitrateEstimate
-
+        
         // Secondary Fallback: Manual smoothing if Meter isn't ready
         val byteDelta = stats.totalBandwidthBytes - lastBandwidthBytes
         val timeDeltaMs = currentTime - lastCheckTimeMs
+        
+        // Calculate current download rate (bytes per second)
+        // Maintain last value to avoid 0 flickering between HLS chunk downloads
+        var currentDownloadRate: Long = smoothedManualBitrate / 8  // Start with last known rate
 
         if (timeDeltaMs >= 1000) {
             if (byteDelta > 0) {
+                // Calculate instantaneous download rate
+                currentDownloadRate = (byteDelta * 1000 / timeDeltaMs) // bytes per second
+                
+                // Also update smoothed bitrate for bandwidth estimate fallback
                 val instantBps = (byteDelta * 8000 / timeDeltaMs)
                 smoothedManualBitrate = if (smoothedManualBitrate == 0L) instantBps
                 else ((instantBps * SMOOTHING_FACTOR) + (smoothedManualBitrate * (1 - SMOOTHING_FACTOR))).toLong()
             }
+            // Always update tracking values even if no new data
             lastBandwidthBytes = stats.totalBandwidthBytes
             lastCheckTimeMs = currentTime
         }
@@ -126,7 +135,8 @@ internal class ExoPlayerStatsAdapter(
 
         val bandwidth = NetworkInfo(
             estimatedBandwidthBps = estimatedBandwidth,
-            totalBytesLoaded = stats.totalBandwidthBytes
+            totalBytesLoaded = stats.totalBandwidthBytes,
+            downloadRateBytesPerSec = currentDownloadRate  // Maintains last valid rate
         )
 
         // 4. Buffer & Performance

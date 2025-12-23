@@ -111,6 +111,7 @@ class HlsStatsViewModel(application: Application) : AndroidViewModel(application
                             bitrate = stats.bitrate,
                             estimatedBandwidth = stats.bandwidth.estimatedBandwidthBps,
                             totalBytesLoaded = stats.bandwidth.totalBytesLoaded,
+                            downloadRateBytesPerSec = stats.bandwidth.downloadRateBytesPerSec,
                             
                             // Performance Metrics
                             droppedFrames = stats.droppedFrames,
@@ -186,7 +187,8 @@ class HlsStatsViewModel(application: Application) : AndroidViewModel(application
                             frameRate = playerStats.videoInfo?.frameRate ?: 0f,
                             bitrate = playerStats.videoInfo?.averageBitrate?.toLong() ?: 0L,
                             estimatedBandwidth = playerStats.bandwidth?.bandWidthEstimate ?: 0L,
-                            totalBytesLoaded = playerStats.bandwidth?.totalBytesLoaded ?: 0L,
+                            totalBytesLoaded = 0L,  // HMS doesn't provide cumulative total
+                            downloadRateBytesPerSec = playerStats.bandwidth?.totalBytesLoaded ?: 0L,  // HMS's "totalBytesLoaded" is actually bytes/sec
                             droppedFrames = playerStats.frameInfo?.droppedFrameCount ?: 0,
                             totalFramesRendered = playerStats.frameInfo?.totalFrameCount ?: 0,
                             videoBufferMs = playerStats.bufferedDuration,
@@ -346,6 +348,7 @@ data class HlsStatsUiState(
     val bitrate: Long = 0,
     val estimatedBandwidth: Long = 0,
     val totalBytesLoaded: Long = 0,
+    val downloadRateBytesPerSec: Long = 0,  // NEW: Current download rate
     
     // Performance Metrics
     val droppedFrames: Int = 0,
