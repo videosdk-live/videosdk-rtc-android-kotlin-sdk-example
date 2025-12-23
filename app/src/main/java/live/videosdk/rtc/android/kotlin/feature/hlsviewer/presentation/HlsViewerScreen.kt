@@ -1,6 +1,5 @@
 package live.videosdk.rtc.android.kotlin.feature.hlsviewer.presentation
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -18,10 +17,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import live.videosdk.rtc.android.kotlin.core.ui.theme.*
-import live.videosdk.rtc.android.kotlin.feature.hlsviewer.presentation.components.ComprehensiveHlsStatsPanel
 import live.videosdk.rtc.android.kotlin.feature.hlsviewer.presentation.components.QualitySelectionDialog
 import live.videosdk.rtc.android.kotlin.feature.hlsviewer.presentation.components.StatsComparisonPanel
 
@@ -29,6 +28,7 @@ import live.videosdk.rtc.android.kotlin.feature.hlsviewer.presentation.component
  * HLS Viewer Screen with meeting integration
  * Supports Host mode (start/stop HLS) and Viewer mode (watch with stats)
  */
+@androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HlsViewerScreen(
@@ -51,6 +51,11 @@ fun HlsViewerScreen(
         ExoPlayer.Builder(context).build().also { player ->
             viewModel.initializePlayer(player)
         }
+    }
+
+    // Sync initial mode with ViewModel
+    LaunchedEffect(Unit) {
+        viewModel.setMode(selectedMode == 0) // 0 = Host, 1 = Viewer
     }
 
     DisposableEffect(Unit) {
@@ -321,7 +326,7 @@ fun HlsViewerScreen(
                             ) {
                                 // Start HLS Button
                                 Button(
-                                    onClick = { viewModel.startHls() },
+                                    onClick = { viewModel.startHls(exoPlayer) },
                                     modifier = Modifier.weight(1f),
                                     enabled = uiState.hlsState == "IDLE" || uiState.hlsState == "HLS_STOPPED",
                                     colors = ButtonDefaults.buttonColors(
