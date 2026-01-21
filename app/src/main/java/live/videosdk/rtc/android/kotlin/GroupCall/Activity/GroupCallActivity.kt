@@ -489,37 +489,6 @@ class GroupCallActivity : AppCompatActivity() {
                 }
                 // notify user of any new messages
                 meeting!!.pubSub.subscribe("CHAT", chatListener)
-
-                //terminate meeting in 10 minutes
-                Handler().postDelayed({
-                    if (!isDestroyed) {
-                        val alertDialog = MaterialAlertDialogBuilder(
-                            this@GroupCallActivity,
-                            R.style.AlertDialogCustom
-                        ).create()
-                        alertDialog.setCanceledOnTouchOutside(false)
-                        val inflater = this@GroupCallActivity.layoutInflater
-                        val dialogView = inflater.inflate(R.layout.alert_dialog_layout, null)
-                        alertDialog.setView(dialogView)
-                        val title = dialogView.findViewById<View>(R.id.title) as TextView
-                        title.text = "Meeting Left"
-                        val message = dialogView.findViewById<View>(R.id.message) as TextView
-                        message.text = "Demo app limits meeting to 10 Minutes"
-                        val positiveButton = dialogView.findViewById<Button>(R.id.positiveBtn)
-                        positiveButton.text = "Ok"
-                        positiveButton.setOnClickListener {
-                            if (!isDestroyed) {
-                                ParticipantState.destroy()
-                                unSubscribeTopics()
-                                meeting!!.leave()
-                            }
-                            alertDialog.dismiss()
-                        }
-                        val negativeButton = dialogView.findViewById<Button>(R.id.negativeBtn)
-                        negativeButton.visibility = GONE
-                        alertDialog.show()
-                    }
-                }, 600000)
             }
         }
 
