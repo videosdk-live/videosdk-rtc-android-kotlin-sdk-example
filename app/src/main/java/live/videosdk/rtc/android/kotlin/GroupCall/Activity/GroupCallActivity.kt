@@ -65,6 +65,7 @@ import kotlin.math.roundToInt
 
 
 class GroupCallActivity : AppCompatActivity() {
+    private var currentMode = "SEND_AND_RECV"
     private var meeting: Meeting? = null
     private var btnWebcam: FloatingActionButton? = null
     private var btnMic: ImageButton? = null
@@ -119,6 +120,10 @@ class GroupCallActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_group_call)
+        if (savedInstanceState != null) {
+            currentMode = savedInstanceState.getString("currentMode", "SEND_AND_RECV")
+            Log.d("GroupCallActivity", "Restored currentMode: $currentMode")
+        }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         //
@@ -1124,9 +1129,11 @@ class GroupCallActivity : AppCompatActivity() {
 
     private fun showChangeModeDialog() {
         val modes = arrayOf("SEND_AND_RECV", "RECV_ONLY", "SIGNALLING_ONLY")
+        val checkedItem = modes.indexOf(currentMode)
+        Log.d("GroupCallActivity", "showChangeModeDialog: currentMode=$currentMode, checkedItem=$checkedItem")
         val materialAlertDialogBuilder = MaterialAlertDialogBuilder(this@GroupCallActivity, R.style.AlertDialogCustom)
         materialAlertDialogBuilder.setTitle("Choose Mode")
-        materialAlertDialogBuilder.setSingleChoiceItems(modes, 0) { dialog, which ->
+        materialAlertDialogBuilder.setSingleChoiceItems(modes, checkedItem) { dialog, which ->
             changeMode(modes[which])
             dialog.dismiss()
         }
@@ -1134,6 +1141,7 @@ class GroupCallActivity : AppCompatActivity() {
     }
 
     private fun changeMode(mode: String) {
+        currentMode = mode
         if (mode == "SEND_AND_RECV") {
             meeting!!.changeMode(mode)
             if (lastMicState) {
@@ -1169,6 +1177,12 @@ class GroupCallActivity : AppCompatActivity() {
     override fun onBackPressed() {
         super.onBackPressed()
         showLeaveOrEndDialog()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString("currentMode", currentMode)
+        Log.d("GroupCallActivity", "Saved currentMode: $currentMode")
     }
 
     override fun onDestroy() {

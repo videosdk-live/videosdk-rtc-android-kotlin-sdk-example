@@ -30,7 +30,10 @@ import org.webrtc.VideoTrack
 import java.util.concurrent.ConcurrentHashMap
 
 
-class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragment() {
+class ParticipantViewFragment() : Fragment() {
+    var meeting: Meeting? = null
+    var position: Int = 0
+
     var participantGridLayout: GridLayout? = null
     var participantChangeListener: ParticipantChangeListener? = null
     var participantState: ParticipantState? = null
@@ -42,6 +45,27 @@ class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragme
     private var popupwindow_obj: PopupWindow? = null
     private var participantsInGrid: MutableMap<String, Participant>? = null
     private val participantsView: MutableMap<String, View> = HashMap()
+
+    companion object {
+        private const val ARG_POSITION = "position"
+
+        fun newInstance(meeting: Meeting, position: Int): ParticipantViewFragment {
+            val fragment = ParticipantViewFragment()
+            fragment.meeting = meeting
+            fragment.position = position
+            val args = Bundle()
+            args.putInt(ARG_POSITION, position)
+            fragment.arguments = args
+            return fragment
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        arguments?.let {
+            position = it.getInt(ARG_POSITION)
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -153,8 +177,10 @@ class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragme
     // Call where View ready.
     @SuppressLint("MissingInflatedId")
     private fun showInGUI(activeSpeaker: Participant?) {
+        Log.d("ParticipantViewFragment", "showInGUI: Participants count: ${participants?.size}")
         for (i in participants!!.indices) {
             val participant = participants!![i]
+            Log.d("ParticipantViewFragment", "showInGUI: Processing ${participant.displayName} (${participant.id}). Streams: ${participant.streams.size}")
             if (participantsInGrid != null) {
                 for ((_, key) in participantsInGrid!!) {
                 if (!participants!!.contains(key)) {
@@ -222,6 +248,7 @@ class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragme
                 }
                 txtParticipantName.text = participant.displayName.substring(0, 1)
                 for ((_, stream) in participant.streams) {
+                    Log.d("ParticipantViewFragment", "Stream found for ${participant.displayName}: Kind=${stream.kind}, Track=${stream.track}")
                     if (stream.kind.equals("video", ignoreCase = true)) {
                         participantVideoView.visibility = View.VISIBLE
                         val videoTrack = stream.track as VideoTrack
@@ -235,6 +262,7 @@ class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragme
                 }
                 participant.addEventListener(object : ParticipantEventListener() {
                     override fun onStreamEnabled(stream: Stream) {
+                        Log.d("ParticipantViewFragment", "onStreamEnabled for ${participant.displayName}: Kind=${stream.kind}")
                         if (stream.kind.equals("video", ignoreCase = true)) {
                             participantVideoView.visibility = View.VISIBLE
                             val videoTrack = stream.track as VideoTrack

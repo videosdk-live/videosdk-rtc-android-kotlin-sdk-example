@@ -27,7 +27,7 @@ class ParticipantViewAdapter(fragmentActivity: FragmentActivity, var meeting: Me
     }
 
     override fun createFragment(position: Int): Fragment {
-        return ParticipantViewFragment(meeting, position)
+        return ParticipantViewFragment.newInstance(meeting, position)
     }
 
     override fun getItemCount(): Int {
