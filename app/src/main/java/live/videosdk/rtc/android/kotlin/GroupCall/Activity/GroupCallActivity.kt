@@ -173,8 +173,8 @@ class GroupCallActivity : AppCompatActivity() {
 
         // create a new meeting instance
         meeting = VideoSDK.initMeeting(
-            this@GroupCallActivity, "remq-6gbe-dnvy", localParticipantName,
-            micEnabled, webcamEnabled, null, null, true,customTracks,null
+            this@GroupCallActivity, "pmvg-9wkk-ybhg", localParticipantName,
+            micEnabled, webcamEnabled, null, null, true, customTracks, null, "api.classplus-prod.videosdk.live"
         )
 
         //

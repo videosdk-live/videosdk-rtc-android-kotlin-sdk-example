@@ -3,6 +3,7 @@ package live.videosdk.rtc.android.kotlin.Common.Fragment
 import android.content.Intent
 import android.os.Bundle
 import android.text.TextUtils
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -56,15 +57,20 @@ class CreateMeetingFragment : Fragment() {
 
 
         btnJoin.setOnClickListener { v: View? ->
+            Log.d("CreateMeetingFragment", "btnJoin clicked!")
             if ("" == etName.text.toString()) {
                 Toast.makeText(context, "Please Enter Name", Toast.LENGTH_SHORT).show()
             } else {
+                Log.d("CreateMeetingFragment", "Name is valid, checking network...")
                 val networkUtils = NetworkUtils(context)
                 if (networkUtils.isNetworkAvailable()) {
                     networkUtils.getToken(object : ResponseListener<String> {
                         override fun onResponse(token: String?) {
+                            Log.d("CreateMeetingFragment", "getToken response: token received = ${token?.take(20)}...")
+                            Log.d("CreateMeetingFragment", "Calling createMeeting...")
                             networkUtils.createMeeting(token, object : ResponseListener<String>{
                                 override fun onResponse(meetingId: String?) {
+                                    Log.d("CreateMeetingFragment", "createMeeting response: meetingId = $meetingId")
                                     var intent: Intent? = null
                                     if (!TextUtils.isEmpty(selectedMeetingType[0])) {
                                         intent =

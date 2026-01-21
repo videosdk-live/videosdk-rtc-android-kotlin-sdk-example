@@ -15,6 +15,7 @@ import org.json.JSONObject
 import java.time.Instant
 import java.util.*
 import java.util.concurrent.TimeUnit
+import android.util.Log
 
 class NetworkUtils(var context: Context?) {
     private var activeMeetingSeconds = 0
@@ -40,6 +41,7 @@ class NetworkUtils(var context: Context?) {
             return
         }
         if (!HelperClass().isNullOrEmpty(AUTH_TOKEN)) {
+            Log.d("NetworkUtils", "getToken: Using AUTH_TOKEN from BuildConfig")
             responseListener.onResponse(AUTH_TOKEN)
             return
         }
@@ -73,20 +75,27 @@ class NetworkUtils(var context: Context?) {
     }
 
     fun createMeeting(token: String?, meetingEventListener: ResponseListener<String>) {
-        AndroidNetworking.post("https://api.videosdk.live/v2/rooms")
+        Log.d("NetworkUtils", "createMeeting: Calling API with token: ${token?.take(20)}...")
+        Log.d("NetworkUtils", "createMeeting: URL = https://api.classplus-prod.videosdk.live/v2/rooms")
+        AndroidNetworking.post("https://api.classplus-prod.videosdk.live/v2/rooms")
             .addHeaders("Authorization", token)
             .build()
             .getAsJSONObject(object : JSONObjectRequestListener {
                 override fun onResponse(response: JSONObject) {
+                    Log.d("NetworkUtils", "createMeeting: SUCCESS - Response: $response")
                     try {
                         val meetingId = response.getString("roomId")
+                        Log.d("NetworkUtils", "createMeeting: Got meetingId = $meetingId")
                         meetingEventListener.onResponse(meetingId)
                     } catch (e: Exception) {
+                        Log.e("NetworkUtils", "createMeeting: Parse error", e)
                         e.printStackTrace()
                     }
                 }
 
                 override fun onError(anError: ANError) {
+                    Log.e("NetworkUtils", "createMeeting: ERROR - ${anError.errorCode} - ${anError.errorDetail}")
+                    Log.e("NetworkUtils", "createMeeting: Error body = ${anError.errorBody}")
                     anError.printStackTrace()
                     val errorRes = JSONObject(anError.errorBody)
                     Toast.makeText(
@@ -98,7 +107,7 @@ class NetworkUtils(var context: Context?) {
     }
 
     fun joinMeeting(token: String?, roomId: String, meetingEventListener: ResponseListener<String>) {
-        AndroidNetworking.get("https://api.videosdk.live/v2/rooms/validate/$roomId")
+        AndroidNetworking.get("https://api.classplus-prod.videosdk.live/v2/rooms/validate/$roomId")
             .addHeaders("Authorization", token)
             .build()
             .getAsJSONObject(object : JSONObjectRequestListener {
@@ -118,7 +127,7 @@ class NetworkUtils(var context: Context?) {
     }
 
     fun fetchMeetingTime(meetingId: String, token: String?, responseListener: ResponseListener<Int>) {
-        AndroidNetworking.get("https://api.videosdk.live/v2/sessions/?roomId=$meetingId")
+        AndroidNetworking.get("https://api.classplus-prod.videosdk.live/v2/sessions/?roomId=$meetingId")
             .addHeaders("Authorization", token)
             .build()
             .getAsJSONObject(object : JSONObjectRequestListener {
