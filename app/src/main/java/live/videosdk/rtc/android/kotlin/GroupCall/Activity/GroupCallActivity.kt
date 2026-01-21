@@ -80,7 +80,9 @@ class GroupCallActivity : AppCompatActivity() {
     private var shareLayout: FrameLayout? = null
 
     private var micEnabled = true
+    private var lastMicState = false
     private var webcamEnabled = true
+    private var lastWebcamState = false
     private var recording = false
     private var localScreenShare = false
     private var token: String? = null
@@ -166,7 +168,7 @@ class GroupCallActivity : AppCompatActivity() {
 
         // create a new meeting instance
         meeting = VideoSDK.initMeeting(
-            this@GroupCallActivity, meetingId, localParticipantName,
+            this@GroupCallActivity, "remq-6gbe-dnvy", localParticipantName,
             micEnabled, webcamEnabled, null, null, true,customTracks,null
         )
 
@@ -1037,6 +1039,10 @@ class GroupCallActivity : AppCompatActivity() {
             "Participants ($participantSize)",
             AppCompatResources.getDrawable(this@GroupCallActivity, R.drawable.ic_people)!!
         )
+        val change_mode = ListItem(
+            "Change Mode",
+            AppCompatResources.getDrawable(this@GroupCallActivity, R.drawable.ic_more_options)!!
+        )
         moreOptionsArrayList.add(raised_hand)
         if (localScreenShare) {
             moreOptionsArrayList.add(stop_screen_share)
@@ -1049,6 +1055,7 @@ class GroupCallActivity : AppCompatActivity() {
             moreOptionsArrayList.add(start_recording)
         }
         moreOptionsArrayList.add(participant_list)
+        moreOptionsArrayList.add(change_mode)
         val arrayAdapter: ArrayAdapter<*> = MoreOptionsListAdapter(
             this@GroupCallActivity,
             R.layout.more_options_list_layout,
@@ -1071,6 +1078,9 @@ class GroupCallActivity : AppCompatActivity() {
                         }
                         3 -> {
                             openParticipantList()
+                        }
+                        4 -> {
+                            showChangeModeDialog()
                         }
                     }
                 }
@@ -1110,6 +1120,50 @@ class GroupCallActivity : AppCompatActivity() {
         } else {
             meeting!!.stopRecording()
         }
+    }
+
+    private fun showChangeModeDialog() {
+        val modes = arrayOf("SEND_AND_RECV", "RECV_ONLY", "SIGNALLING_ONLY")
+        val materialAlertDialogBuilder = MaterialAlertDialogBuilder(this@GroupCallActivity, R.style.AlertDialogCustom)
+        materialAlertDialogBuilder.setTitle("Choose Mode")
+        materialAlertDialogBuilder.setSingleChoiceItems(modes, 0) { dialog, which ->
+            changeMode(modes[which])
+            dialog.dismiss()
+        }
+        materialAlertDialogBuilder.create().show()
+    }
+
+    private fun changeMode(mode: String) {
+        if (mode == "SEND_AND_RECV") {
+            meeting!!.changeMode(mode)
+            if (lastMicState) {
+                val audioCustomTrack = VideoSDK.createAudioTrack("high_quality", this)
+                meeting!!.unmuteMic(audioCustomTrack)
+            }
+            if (lastWebcamState) {
+                val videoCustomTrack = VideoSDK.createCameraVideoTrack(
+                    "h720p_w960p",
+                    "front",
+                    CustomStreamTrack.VideoMode.DETAIL,
+                    true,
+                    this, VideoSDK.getSelectedVideoDevice()
+                )
+                meeting!!.enableWebcam(videoCustomTrack)
+            }
+        } else {
+            if (micEnabled) {
+                lastMicState = true
+                micEnabled = false
+                toggleMicIcon()
+            }
+            if (webcamEnabled) {
+                lastWebcamState = true
+                webcamEnabled = false
+                toggleWebcamIcon()
+            }
+            meeting!!.changeMode(mode)
+        }
+        Toast.makeText(this, "Changed mode to $mode", Toast.LENGTH_SHORT).show()
     }
 
     override fun onBackPressed() {

@@ -57,14 +57,12 @@ class CreateOrJoinActivity : AppCompatActivity() {
     private var toolbar: Toolbar? = null
     private var actionBar: ActionBar? = null
     private var videoTrack: CustomStreamTrack? = null
-    private var videoCapturer: VideoCapturer? = null
-    private var initializationOptions: InitializationOptions? = null
-    private var peerConnectionFactory: PeerConnectionFactory? = null
+
     private lateinit var preCallListAdaptor: DeviceAdaptor
     private lateinit var recyclerView: RecyclerView
 
 
-    private var videoSource: VideoSource? = null
+
     var permissionsGranted = false
     lateinit var optionsMenu: Menu
     private val permissionHandler: com.nabinbhandari.android.permissions.PermissionHandler = object : com.nabinbhandari.android.permissions.PermissionHandler() {
@@ -184,6 +182,9 @@ class CreateOrJoinActivity : AppCompatActivity() {
             }
             R.id.Audio -> {
                 getAudioDevices()
+            }
+            R.id.Crash -> {
+               throw RuntimeException("Test Crash") // Force a crash
             }
             else -> super.onOptionsItemSelected(item)
         }
@@ -399,31 +400,6 @@ class CreateOrJoinActivity : AppCompatActivity() {
         }
     }
 
-    private fun createCameraCapturer(): VideoCapturer? {
-        val enumerator = Camera1Enumerator(false)
-        val deviceNames = enumerator.deviceNames
-
-        // First, try to find front facing camera
-        for (deviceName in deviceNames) {
-            if (enumerator.isFrontFacing(deviceName)) {
-                val videoCapturer: VideoCapturer? = enumerator.createCapturer(deviceName, null)
-                if (videoCapturer != null) {
-                    return videoCapturer
-                }
-            }
-        }
-
-        // Front facing camera not found, try something else
-        for (deviceName in deviceNames) {
-            if (!enumerator.isFrontFacing(deviceName)) {
-                val videoCapturer: VideoCapturer? = enumerator.createCapturer(deviceName, null)
-                if (videoCapturer != null) {
-                    return videoCapturer
-                }
-            }
-        }
-        return null
-    }
 
     override fun onDestroy() {
         Log.d(TAG, "onDestroy crash")

@@ -14,4 +14,8 @@
         android:title="Choose camera options"
         app:showAsAction="always"
         />
+    <item
+        android:id="@+id/Crash"
+        android:title="Crash"
+        app:showAsAction="never" />
 </menu>
