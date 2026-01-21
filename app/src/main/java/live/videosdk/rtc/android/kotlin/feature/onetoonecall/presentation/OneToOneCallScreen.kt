@@ -46,6 +46,14 @@ fun OneToOneCallScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
 
+    // Navigate away when meeting is left
+    LaunchedEffect(uiState.shouldNavigateAway) {
+        if (uiState.shouldNavigateAway) {
+            android.util.Log.d("OneToOneCall", "onLeave()")
+            onLeaveCall()
+        }
+    }
+
     // Initialize meeting
     LaunchedEffect(Unit) {
         VideoSDK.config(token)
@@ -62,6 +70,8 @@ fun OneToOneCallScreen(
             context, meetingId, participantName,
             initialMicEnabled, initialWebcamEnabled, null, null, true, customTracks, null
         )
+
+        android.util.Log.d("OneToOneCall", "Meeting instance hash: ${System.identityHashCode(meeting)}")
         
         viewModel.initializeMeeting(meeting, initialMicEnabled, initialWebcamEnabled)
         meeting.join()
@@ -165,7 +175,7 @@ fun OneToOneCallScreen(
                         onToggleMic = { viewModel.toggleMic() },
                         onToggleWebcam = { viewModel.toggleWebcam() },
                         onOpenChat = { viewModel.showChatSheet(true) },
-                        onLeaveCall = onLeaveCall
+                        onLeaveCall = { viewModel.leaveMeeting() }
                     )
                 }
             }

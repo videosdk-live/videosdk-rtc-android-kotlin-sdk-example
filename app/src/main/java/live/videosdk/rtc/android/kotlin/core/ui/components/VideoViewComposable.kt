@@ -1,5 +1,6 @@
 package live.videosdk.rtc.android.kotlin.core.ui.components
 
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
@@ -8,6 +9,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import live.videosdk.rtc.android.VideoView
 import org.webrtc.VideoTrack
+
+private const val TAG = "VideoViewComposable"
 
 /**
  * Wrapper for VideoSDK's VideoView in Compose
@@ -32,10 +35,18 @@ fun VideoViewComposable(
 
     DisposableEffect(videoTrack) {
         if (videoTrack != null) {
-            videoView.addTrack(videoTrack)
+            try {
+                videoView.addTrack(videoTrack)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to add track in DisposableEffect: ${e.message}")
+            }
         }
         onDispose {
-            videoView.removeTrack()
+            try {
+                videoView.removeTrack()
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to remove track in onDispose: ${e.message}")
+            }
         }
     }
 
@@ -43,11 +54,15 @@ fun VideoViewComposable(
         factory = { videoView },
         modifier = modifier,
         update = { view ->
-            view.setMirror(isMirrored)
-            if (videoTrack != null) {
-                view.addTrack(videoTrack)
-            } else {
-                view.removeTrack()
+            try {
+                view.setMirror(isMirrored)
+                if (videoTrack != null) {
+                    view.addTrack(videoTrack)
+                } else {
+                    view.removeTrack()
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to update VideoView: ${e.message}")
             }
         }
     )

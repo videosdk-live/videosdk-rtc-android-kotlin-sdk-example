@@ -132,6 +132,11 @@ fun GroupCallScreen(
                             }
                             Icon(icon, "Audio Device", tint = White)
                         }
+                        
+                        // Mode change button
+                        IconButton(onClick = { viewModel.showModeSheet(true) }) {
+                            Icon(Icons.Default.Settings, "Change Mode", tint = White)
+                        }
                     }
                 )
             }
@@ -198,6 +203,19 @@ fun GroupCallScreen(
                     Toast.makeText(context, "Selected ${device.label}", Toast.LENGTH_SHORT).show()
                 },
                 onDismiss = { viewModel.showAudioDeviceSheet(false) }
+            )
+        }
+        
+        // Mode selection bottom sheet
+        if (uiState.showModeSheet) {
+            ModeSelectionBottomSheet(
+                currentMode = uiState.currentMode,
+                onModeSelected = { mode ->
+                    viewModel.changeMode(mode)
+                    viewModel.showModeSheet(false)
+                    Toast.makeText(context, "Changing to $mode", Toast.LENGTH_SHORT).show()
+                },
+                onDismiss = { viewModel.showModeSheet(false) }
             )
         }
     }
@@ -377,6 +395,63 @@ fun AudioDeviceBottomSheet(
                         .clickable { onDeviceSelected(device) },
                     colors = ListItemDefaults.colors(
                         containerColor = if (device == selectedDevice) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surface
+                        }
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ModeSelectionBottomSheet(
+    currentMode: String,
+    onModeSelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val modes = listOf(
+        "SEND_AND_RECV" to "Send & Receive",
+        "RECV_ONLY" to "Receive Only",
+        "SIGNALLING_ONLY" to "Signalling Only"
+    )
+    
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = "Select Mode",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            modes.forEach { (mode, label) ->
+                ListItem(
+                    headlineContent = { Text(label) },
+                    supportingContent = { 
+                        Text(
+                            when (mode) {
+                                "SEND_AND_RECV" -> "Full participation"
+                                "RECV_ONLY" -> "Watch only, no sending"
+                                "SIGNALLING_ONLY" -> "Control only, no media"
+                                else -> ""
+                            },
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onModeSelected(mode) },
+                    colors = ListItemDefaults.colors(
+                        containerColor = if (mode == currentMode) {
                             MaterialTheme.colorScheme.primaryContainer
                         } else {
                             MaterialTheme.colorScheme.surface

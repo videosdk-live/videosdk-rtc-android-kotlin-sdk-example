@@ -297,6 +297,19 @@ class GroupCallViewModel : ViewModel() {
         return VideoSDK.getAudioDevices().toList()
     }
 
+    fun showModeSheet(show: Boolean) {
+        _uiState.update { it.copy(showModeSheet = show) }
+    }
+
+    /**
+     * Change the meeting mode.
+     * Modes: RECV_ONLY, SEND_AND_RECV, SIGNALLING_ONLY
+     */
+    fun changeMode(mode: String) {
+        meeting?.changeMode(mode)
+        _uiState.update { it.copy(currentMode = mode) }
+    }
+
     override fun onCleared() {
         super.onCleared()
         // Unsubscribe from topics
@@ -319,9 +332,11 @@ data class GroupCallUiState(
     val raisedHands: Map<String, String> = emptyMap(), // participantId -> name
     val showChatSheet: Boolean = false,
     val showAudioDeviceSheet: Boolean = false,
+    val showModeSheet: Boolean = false,
     val selectedAudioDevice: AudioDeviceInfo? = null,
     val availableAudioDevices: List<AudioDeviceInfo> = emptyList(),
-    val needsScreenSharePermission: Boolean = false
+    val needsScreenSharePermission: Boolean = false,
+    val currentMode: String = "SEND_AND_RECV"
 )
 
 /**

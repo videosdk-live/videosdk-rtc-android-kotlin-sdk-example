@@ -54,7 +54,7 @@ fun VideoSDKNavGraph(
         ) { backStackEntry ->
             GroupCallScreen(
                 token = token,
-                meetingId = backStackEntry.arguments?.getString("meetingId") ?: "",
+                meetingId = backStackEntry.arguments?.getString("meetingId") ?: "meetingId = remq-6gbe-dnvy",
                 initialMicEnabled = backStackEntry.arguments?.getBoolean("micEnabled") ?: true,
                 initialWebcamEnabled = backStackEntry.arguments?.getBoolean("webcamEnabled") ?: true,
                 participantName = backStackEntry.arguments?.getString("participantName") ?: "Guest",

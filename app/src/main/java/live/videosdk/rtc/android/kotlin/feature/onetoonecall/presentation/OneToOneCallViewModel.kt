@@ -1,6 +1,10 @@
 package live.videosdk.rtc.android.kotlin.feature.onetoonecall.presentation
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -8,6 +12,7 @@ import kotlinx.coroutines.flow.update
 import live.videosdk.rtc.android.Meeting
 import live.videosdk.rtc.android.Participant
 import live.videosdk.rtc.android.VideoSDK
+import live.videosdk.rtc.android.lib.MeetingState
 import live.videosdk.rtc.android.listeners.MeetingEventListener
 import live.videosdk.rtc.android.listeners.PubSubMessageListener
 import live.videosdk.rtc.android.model.PubSubPublishOptions
@@ -19,6 +24,10 @@ import org.json.JSONObject
  * Manages meeting state, remote participant, screen sharing, chat, and hand raise events
  */
 class OneToOneCallViewModel : ViewModel() {
+
+    companion object {
+        private const val TAG = "OneToOneCall"
+    }
 
     private val _uiState = MutableStateFlow(OneToOneCallUiState())
     val uiState: StateFlow<OneToOneCallUiState> = _uiState.asStateFlow()
@@ -45,25 +54,70 @@ class OneToOneCallViewModel : ViewModel() {
     private fun setupMeetingListeners() {
         meeting?.addEventListener(object : MeetingEventListener() {
             override fun onMeetingJoined() {
+                android.util.Log.d(TAG, "📍 onMeetingJoined() - Meeting joined successfully")
                 updateRemoteParticipant()
             }
 
             override fun onParticipantJoined(participant: Participant) {
+                android.util.Log.d(TAG, "📍 onParticipantJoined() - Participant: ${participant.displayName} (ID: ${participant.id})")
                 updateRemoteParticipant()
             }
 
             override fun onParticipantLeft(participant: Participant) {
+                android.util.Log.d(TAG, "📍 onParticipantLeft() - Participant: ${participant.displayName} (ID: ${participant.id})")
                 updateRemoteParticipant()
                 // Clear remote hand raise if they left
                 _uiState.update { it.copy(isRemoteHandRaised = false) }
             }
 
             override fun onPresenterChanged(participantId: String?) {
+                android.util.Log.d(TAG, "📍 onPresenterChanged() - PresenterID: $participantId")
                 _uiState.update { it.copy(presenterId = participantId) }
             }
 
             override fun onMeetingLeft() {
-                // Meeting ended
+                android.util.Log.d(TAG, "📍 onMeetingLeft() - Meeting left, triggering navigation")
+                _uiState.update { it.copy(shouldNavigateAway = true) }
+            }
+
+            override fun onSpeakerChanged(participantId: String?) {
+                android.util.Log.d(TAG, "📍 onSpeakerChanged() - SpeakerID: $participantId")
+            }
+
+            override fun onRecordingStateChanged(recordingState: String) {
+                android.util.Log.d(TAG, "📍 onRecordingStateChanged() - State: $recordingState")
+            }
+
+            override fun onLivestreamStateChanged(livestreamState: String) {
+                android.util.Log.d(TAG, "📍 onLivestreamStateChanged() - State: $livestreamState")
+            }
+
+            override fun onHlsStateChanged(hlsState: org.json.JSONObject) {
+                android.util.Log.d(TAG, "📍 onHlsStateChanged() - State: $hlsState")
+            }
+
+            override fun onTranscriptionStateChanged(transcriptionState: org.json.JSONObject) {
+                android.util.Log.d(TAG, "📍 onTranscriptionStateChanged() - State: $transcriptionState")
+            }
+
+            override fun onMeetingStateChanged(state: MeetingState) {
+                android.util.Log.d(TAG, "📍 onMeetingStateChanged() - State: $state")
+            }
+
+            override fun onParticipantModeChanged(data: org.json.JSONObject) {
+                android.util.Log.d(TAG, "📍 onParticipantModeChanged() - Data: $data")
+            }
+
+            override fun onPinStateChanged(data: org.json.JSONObject) {
+                android.util.Log.d(TAG, "📍 onPinStateChanged() - Data: $data")
+            }
+
+            override fun onError(error: org.json.JSONObject) {
+                android.util.Log.e(TAG, "📍 onError() - Error: $error")
+            }
+
+            override fun onExternalCallStarted() {
+                android.util.Log.d(TAG, "📍 onExternalCallStarted()")
             }
         })
     }
@@ -132,6 +186,7 @@ class OneToOneCallViewModel : ViewModel() {
 
     private fun updateRemoteParticipant() {
         meeting?.let { meeting ->
+            Log.e("OneToOneCall", "Participant: -> Size -> ${meeting.participants.size}")
             val remote = meeting.participants.values.firstOrNull { it.id != meeting.localParticipant.id }
             _uiState.update { it.copy(remoteParticipant = remote) }
         }
@@ -226,6 +281,15 @@ class OneToOneCallViewModel : ViewModel() {
         _uiState.update { it.copy(showAudioDeviceSheet = show) }
     }
 
+    fun leaveMeeting() {
+        Log.d(TAG, "📍 leaveMeeting() called")
+        // Clear remote participant first to stop video rendering before tracks are disposed
+        _uiState.update { it.copy(remoteParticipant = null, isLeaving = true) }
+        meeting?.leave()
+        meeting?.removeAllListeners()
+
+    }
+
     fun selectAudioDevice(device: AudioDeviceInfo) {
         VideoSDK.setSelectedAudioDevice(device)
     }
@@ -233,6 +297,7 @@ class OneToOneCallViewModel : ViewModel() {
     override fun onCleared() {
         super.onCleared()
         // Unsubscribe from topics
+        meeting?.removeAllListeners()
         meeting?.pubSub?.unsubscribe(chatTopic, null)
         meeting?.pubSub?.unsubscribe(handRaiseTopic, null)
     }
@@ -254,5 +319,7 @@ data class OneToOneCallUiState(
     val showChatSheet: Boolean = false,
     val showAudioDeviceSheet: Boolean = false,
     val selectedAudioDevice: AudioDeviceInfo? = null,
-    val availableAudioDevices: List<AudioDeviceInfo> = emptyList()
+    val availableAudioDevices: List<AudioDeviceInfo> = emptyList(),
+    val shouldNavigateAway: Boolean = false,
+    val isLeaving: Boolean = false
 )
