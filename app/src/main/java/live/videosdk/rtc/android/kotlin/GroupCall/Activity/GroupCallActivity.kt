@@ -153,6 +153,12 @@ class GroupCallActivity : AppCompatActivity() {
         if (localParticipantName == null) {
             localParticipantName = "John Doe"
         }
+        
+        // Get mode from intent, default to SEND_AND_RECV
+        var participantMode = intent.getStringExtra("mode")
+        if (participantMode == null) {
+            participantMode = "SEND_AND_RECV"
+        }
 
         // pass the token generated from api server
         VideoSDK.config(token)
@@ -171,10 +177,10 @@ class GroupCallActivity : AppCompatActivity() {
         val audioCustomTrack = VideoSDK.createAudioTrack("high_quality", this)
         customTracks["mic"] = audioCustomTrack
 
-        // create a new meeting instance
+        // create a new meeting instance with selected mode
         meeting = VideoSDK.initMeeting(
-            this@GroupCallActivity, "pmvg-9wkk-ybhg", localParticipantName,
-            micEnabled, webcamEnabled, null, null, true, customTracks, null, "api.classplus-prod.videosdk.live"
+            this@GroupCallActivity, meetingId, localParticipantName,
+            micEnabled, webcamEnabled, null, participantMode, true, customTracks, null, "api.classplus-prod.videosdk.live"
         )
 
         //
@@ -871,6 +877,7 @@ class GroupCallActivity : AppCompatActivity() {
     }
 
     private fun showLeaveOrEndDialog() {
+        if (isFinishing || isDestroyed) return
         val optionsArrayList: ArrayList<ListItem> = ArrayList<ListItem>()
         val leaveMeeting =
             AppCompatResources.getDrawable(this@GroupCallActivity, R.drawable.ic_leave)?.let {

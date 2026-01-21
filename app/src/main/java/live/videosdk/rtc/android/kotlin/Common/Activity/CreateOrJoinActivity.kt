@@ -61,7 +61,8 @@ class CreateOrJoinActivity : AppCompatActivity() {
     private lateinit var preCallListAdaptor: DeviceAdaptor
     private lateinit var recyclerView: RecyclerView
 
-
+    // Selected participant mode (SEND_AND_RECV, RECV_ONLY, SIGNALLING_ONLY)
+    var selectedMode: String = "SEND_AND_RECV"
 
     var permissionsGranted = false
     lateinit var optionsMenu: Menu

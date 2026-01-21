@@ -109,6 +109,9 @@ class JoinMeetingFragment : Fragment() {
                                             intent.putExtra(
                                                 "participantName",
                                                 etName.text.toString().trim { it <= ' ' })
+                                            intent.putExtra(
+                                                "mode",
+                                                (activity as CreateOrJoinActivity?)!!.selectedMode)
                                             startActivity(intent)
                                             (activity as CreateOrJoinActivity?)!!.finish()
                                         } else {

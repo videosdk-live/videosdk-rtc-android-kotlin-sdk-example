@@ -82,6 +82,12 @@ class ParticipantViewFragment() : Fragment() {
     @SuppressLint("ClickableViewAccessibility")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        
+        // Guard against null meeting (can happen during activity recreation after meeting ends)
+        if (meeting == null) {
+            return
+        }
+        
         participantGridLayout!!.setOnTouchListener((activity as GroupCallActivity?)!!.getTouchListener())
         participantChangeListener = object : ParticipantChangeListener {
             override fun onChangeParticipant(participantList: List<List<Participant?>?>?) {

@@ -10,6 +10,45 @@
     android:layout_margin="36dp"
     android:orientation="vertical">
 
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense.ExposedDropdownMenu"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        app:boxCornerRadiusBottomEnd="15dp"
+        app:boxCornerRadiusBottomStart="15dp"
+        app:boxCornerRadiusTopEnd="15dp"
+        app:boxCornerRadiusTopStart="15dp"
+        app:boxStrokeWidthFocused="0dp"
+        app:boxStrokeWidth="0dp"
+        app:boxStrokeColor="#202427"
+        app:endIconTint="@color/white"
+        app:boxBackgroundColor="#202427">
+
+        <AutoCompleteTextView
+            android:id="@+id/autoCompleteModeView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="SEND_AND_RECV"
+            android:elevation="0dp"
+            android:shadowColor="#202427"
+            android:textColor="@color/text_color"
+            android:background="@drawable/et_style"
+            android:inputType="none"
+            android:textAlignment="center"
+            android:fadingEdge="none"
+            android:dropDownSelector="@drawable/et_style"
+            android:padding="15dp"
+            android:fontFamily="sans-serif-medium"
+            android:textFontWeight="620"
+            android:letterSpacing="0"
+            android:textSize="18dp"
+            android:gravity="center"
+            android:paddingStart="50dp"
+            />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnCreateMeeting"
         android:layout_width="match_parent"
