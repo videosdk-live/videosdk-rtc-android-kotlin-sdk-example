@@ -159,6 +159,7 @@ class GroupCallActivity : AppCompatActivity() {
         if (participantMode == null) {
             participantMode = "SEND_AND_RECV"
         }
+        currentMode = participantMode
 
         // pass the token generated from api server
         VideoSDK.config(token)
@@ -177,10 +178,14 @@ class GroupCallActivity : AppCompatActivity() {
         val audioCustomTrack = VideoSDK.createAudioTrack("high_quality", this)
         customTracks["mic"] = audioCustomTrack
 
-        // create a new meeting instance with selected mode
+        // Create a new meeting instance.
+        // Note: passing "SEND_AND_RECV" explicitly causes a crash in SDK config lookup.
+        // We pass null for "SEND_AND_RECV" (which is default), but pass other modes explicitly.
+        val modeForInit = if (participantMode == "SEND_AND_RECV") null else participantMode
+        
         meeting = VideoSDK.initMeeting(
             this@GroupCallActivity, meetingId, localParticipantName,
-            micEnabled, webcamEnabled, null, participantMode, true, customTracks, null, "api.classplus-prod.videosdk.live"
+            micEnabled, webcamEnabled, null, modeForInit, true, customTracks, null, "api.classplus-prod.videosdk.live"
         )
 
         //
@@ -414,6 +419,7 @@ class GroupCallActivity : AppCompatActivity() {
             if (meeting != null) {
                 //hide progress when meetingJoined
                 HelperClass.hideProgress(window.decorView.rootView)
+
                 toggleMicIcon()
                 toggleWebcamIcon()
                 setLocalListeners()

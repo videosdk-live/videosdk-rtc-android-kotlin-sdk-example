@@ -29,6 +29,8 @@ class CreateOrJoinFragment : Fragment() {
         val autocompleteModeTV =
             view.findViewById<View>(R.id.autoCompleteModeView) as AutoCompleteTextView
         autocompleteModeTV.setAdapter(modeArrayAdapter)
+        // Set high threshold to prevent filtering based on text
+        autocompleteModeTV.threshold = 1000
         autocompleteModeTV.setDropDownBackgroundDrawable(
             ResourcesCompat.getDrawable(
                 requireContext().resources,
@@ -37,8 +39,16 @@ class CreateOrJoinFragment : Fragment() {
             )
         )
         
-        // Set default mode
-        (activity as CreateOrJoinActivity).selectedMode = "SEND_AND_RECV"
+        // Preserve the previously selected mode from activity, or use default
+        val activityMode = (activity as CreateOrJoinActivity).selectedMode
+        autocompleteModeTV.setText(activityMode, false)
+        
+        // When clicked, reset the adapter to show all options (clear the filter)
+        autocompleteModeTV.setOnClickListener {
+            autocompleteModeTV.setAdapter(null)
+            autocompleteModeTV.setAdapter(modeArrayAdapter)
+            autocompleteModeTV.showDropDown()
+        }
         
         autocompleteModeTV.onItemClickListener =
             OnItemClickListener { _, _, i, _ ->
