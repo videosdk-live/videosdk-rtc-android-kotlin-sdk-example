@@ -66,7 +66,7 @@ import kotlin.math.roundToInt
 
 class GroupCallActivity : AppCompatActivity() {
     private var currentMode = "SEND_AND_RECV"
-    private var meeting: Meeting? = null
+    internal var meeting: Meeting? = null
     private var btnWebcam: FloatingActionButton? = null
     private var btnMic: ImageButton? = null
     private var btnAudioSelection: ImageButton? = null
@@ -1123,37 +1123,46 @@ class GroupCallActivity : AppCompatActivity() {
     }
 
     private fun changeMode(mode: String) {
-        currentMode = mode
-        if (mode == "SEND_AND_RECV") {
-            meeting!!.changeMode(mode)
-            if (lastMicState) {
-                val audioCustomTrack = VideoSDK.createAudioTrack("high_quality", this)
-                meeting!!.unmuteMic(audioCustomTrack)
-            }
-            if (lastWebcamState) {
-                val videoCustomTrack = VideoSDK.createCameraVideoTrack(
-                    "h720p_w960p",
-                    "front",
-                    CustomStreamTrack.VideoMode.DETAIL,
-                    true,
-                    this, VideoSDK.getSelectedVideoDevice()
-                )
-                meeting!!.enableWebcam(videoCustomTrack)
-            }
-        } else {
-            if (micEnabled) {
-                lastMicState = true
-                micEnabled = false
-                toggleMicIcon()
-            }
-            if (webcamEnabled) {
-                lastWebcamState = true
-                webcamEnabled = false
-                toggleWebcamIcon()
-            }
-            meeting!!.changeMode(mode)
+        // Skip if already in the selected mode
+        if (mode == currentMode) {
+            return
         }
-        Toast.makeText(this, "Changed mode to $mode", Toast.LENGTH_SHORT).show()
+        currentMode = mode
+        try {
+            if (mode == "SEND_AND_RECV") {
+                meeting!!.changeMode(mode)
+                if (lastMicState) {
+                    val audioCustomTrack = VideoSDK.createAudioTrack("high_quality", this)
+                    meeting!!.unmuteMic(audioCustomTrack)
+                }
+                if (lastWebcamState) {
+                    val videoCustomTrack = VideoSDK.createCameraVideoTrack(
+                        "h720p_w960p",
+                        "front",
+                        CustomStreamTrack.VideoMode.DETAIL,
+                        true,
+                        this, VideoSDK.getSelectedVideoDevice()
+                    )
+                    meeting!!.enableWebcam(videoCustomTrack)
+                }
+            } else {
+                if (micEnabled) {
+                    lastMicState = true
+                    micEnabled = false
+                    toggleMicIcon()
+                }
+                if (webcamEnabled) {
+                    lastWebcamState = true
+                    webcamEnabled = false
+                    toggleWebcamIcon()
+                }
+                meeting!!.changeMode(mode)
+            }
+            Toast.makeText(this, "Changed mode to $mode", Toast.LENGTH_SHORT).show()
+        } catch (e: Throwable) {
+            Log.e("GroupCallActivity", "Error changing mode: ${e.message}")
+            Toast.makeText(this, "Failed to change mode: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun onBackPressed() {

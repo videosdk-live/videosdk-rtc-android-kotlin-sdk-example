@@ -83,9 +83,14 @@ class ParticipantViewFragment() : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         
-        // Guard against null meeting (can happen during activity recreation after meeting ends)
+        // If meeting is null (can happen during activity recreation), try to get it from the activity
         if (meeting == null) {
-            return
+            val activity = activity as? GroupCallActivity
+            meeting = activity?.meeting
+            // If still null (meeting ended or activity not ready), safely return
+            if (meeting == null) {
+                return
+            }
         }
         
         participantGridLayout!!.setOnTouchListener((activity as GroupCallActivity?)!!.getTouchListener())
