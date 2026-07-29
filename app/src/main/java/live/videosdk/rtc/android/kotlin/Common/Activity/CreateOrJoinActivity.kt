@@ -225,19 +225,22 @@ class CreateOrJoinActivity : AppCompatActivity() {
 
     private fun changeCamera() {
         // Code to change Camera
-        val videoDevices : Set<VideoDeviceInfo>  = VideoSDK.getVideoDevices()
+        val videoDevices: Set<VideoDeviceInfo> = VideoSDK.getVideoDevices()
+        val currentDevice = getSelectedOrDefaultVideoDevice()
+        if (currentDevice == null) {
+            Toast.makeText(this, "No camera device available", Toast.LENGTH_SHORT).show()
+            return
+        }
 
-        val currentDevice =  VideoSDK.getSelectedVideoDevice();
-
-        val currentFacingMode = currentDevice.facingMode;
+        val currentFacingMode = currentDevice.facingMode
 
         var facingMode = FacingMode.front
-        var videoDevice : VideoDeviceInfo? = null;
+        var videoDevice: VideoDeviceInfo? = null
 
-        if(currentFacingMode.equals(FacingMode.front))
+        if(currentFacingMode == FacingMode.front)
         {
             facingMode = FacingMode.back
-        }else if(currentFacingMode.equals(FacingMode.back))
+        }else if(currentFacingMode == FacingMode.back)
         {
             facingMode = FacingMode.front
         }
@@ -313,17 +316,9 @@ class CreateOrJoinActivity : AppCompatActivity() {
     }
 
     private fun checkPermissions() {
-        val permissionList: MutableList<String> = ArrayList()
-        permissionList.add(Manifest.permission.INTERNET)
-        permissionList.add(Manifest.permission.READ_PHONE_STATE)
-        permissionList.add(Manifest.permission.POST_NOTIFICATIONS)
-        val options =
-            com.nabinbhandari.android.permissions.Permissions.Options().sendDontAskAgainToSettings(false)
-        com.nabinbhandari.android.permissions.Permissions.check(this, permissionList.toTypedArray(), null, options, permissionHandler)
         val permissionListSDK: MutableList<Permission> = ArrayList()
         permissionListSDK.add(Permission.audio)
         permissionListSDK.add(Permission.video)
-        permissionListSDK.add(Permission.bluetooth)
         val optionsSDK = Permissions.Options().setRationaleDialogTitle("Info").setSettingsDialogTitle("Warning")
             VideoSDK.checkPermissions(this,
                 permissionListSDK,
@@ -377,12 +372,22 @@ class CreateOrJoinActivity : AppCompatActivity() {
             cameraOffText?.visibility= View.GONE
             joinView!!.visibility = View.VISIBLE
 
+            val selectedVideoDevice = videoDevice ?: getSelectedOrDefaultVideoDevice()
+            if (selectedVideoDevice == null) {
+                Log.d(TAG, "updateCameraView: no video device available")
+                cameraOffText?.visibility = View.VISIBLE
+                joinView!!.visibility = View.INVISIBLE
+                return
+            }
+
+            videoTrack?.track?.dispose()
+            joinView!!.removeTrack()
             videoTrack = VideoSDK.createCameraVideoTrack(
                 "h720p_w960p",
                 "front",
                 CustomStreamTrack.VideoMode.TEXT,
                 true,
-                this,videoDevice
+                this,selectedVideoDevice
             )
             // display in localView
             joinView!!.addTrack(videoTrack!!.track as VideoTrack?)
@@ -397,6 +402,21 @@ class CreateOrJoinActivity : AppCompatActivity() {
             joinView!!.visibility = View.INVISIBLE;
             cameraOffText?.visibility = View.VISIBLE
         }
+    }
+
+    private fun getSelectedOrDefaultVideoDevice(): VideoDeviceInfo? {
+        VideoSDK.getSelectedVideoDevice()?.let { return it }
+
+        val videoDevices = VideoSDK.getVideoDevices()
+        val videoDevice = videoDevices.firstOrNull { it.facingMode == FacingMode.front }
+            ?: videoDevices.firstOrNull()
+
+        if (videoDevice != null) {
+            VideoSDK.setSelectedVideoDevice(videoDevice)
+            joinView?.setMirror(videoDevice.facingMode == FacingMode.front)
+        }
+
+        return videoDevice
     }
 
     private fun createCameraCapturer(): VideoCapturer? {
@@ -448,7 +468,7 @@ class CreateOrJoinActivity : AppCompatActivity() {
 
     override fun onRestart() {
         Log.d(TAG, "onRestart: ")
-        updateCameraView(null)
+        updateCameraView(VideoSDK.getSelectedVideoDevice())
         super.onRestart()
     }
 

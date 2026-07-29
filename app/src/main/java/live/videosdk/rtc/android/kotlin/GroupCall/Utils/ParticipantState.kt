@@ -51,7 +51,7 @@ class ParticipantState internal constructor(var meeting: Meeting) {
                 }
             }
 
-            override fun onSpeakerChanged(participantId: String) {
+            override fun onSpeakerChanged(participantId: String?) {
                 super.onSpeakerChanged(participantId)
                 var updateGrid = true
                 var activeSpeaker: Participant? = null

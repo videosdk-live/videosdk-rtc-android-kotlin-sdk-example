@@ -56,6 +56,8 @@ import live.videosdk.rtc.android.lib.JsonUtils
 import live.videosdk.rtc.android.lib.MeetingState
 import live.videosdk.rtc.android.lib.PubSubMessage
 import live.videosdk.rtc.android.listeners.*
+import live.videosdk.rtc.android.model.PubSubHistoryInfo
+import live.videosdk.rtc.android.model.PubSubMessageDropInfo
 import live.videosdk.rtc.android.model.PubSubPublishOptions
 import live.videosdk.rtc.android.permission.Permission
 import live.videosdk.rtc.android.permission.PermissionHandler
@@ -193,15 +195,15 @@ class OneToOneCallActivity : AppCompatActivity() {
 
         val customTracks: MutableMap<String, CustomStreamTrack> = HashMap()
 
+        val selectedVideoDevice = VideoSDK.getSelectedVideoDevice()
         val videoCustomTrack = VideoSDK.createCameraVideoTrack(
             "h720p_w960p",
             "front",
             CustomStreamTrack.VideoMode.TEXT,
             true,
-            this,VideoSDK.getSelectedVideoDevice()
+            this, selectedVideoDevice
         )
 
-        Log.d("TAG", "onCreate: " + VideoSDK.getSelectedVideoDevice().label)
         customTracks["video"] = videoCustomTrack
 
         val audioCustomTrack = VideoSDK.createAudioTrack("high_quality", this)
@@ -480,6 +482,21 @@ class OneToOneCallActivity : AppCompatActivity() {
                             }
                         }
 
+                        override fun onOldMessagesReceived(
+                            messages: List<PubSubMessage?>?,
+                            info: PubSubHistoryInfo?
+                        ) {
+                            // handle old messages with info
+                        }
+
+                        override fun onBatchReceived(messages: List<PubSubMessage?>?) {
+                            // handle new messages in batches
+                        }
+
+                        override fun onMessageDrop(info: PubSubMessageDropInfo?) {
+                            // handle messages drop action
+                        }
+
                         override fun onOldMessagesReceived(messages: List<PubSubMessage>?) {
                             // handle old messages
                         }
@@ -637,7 +654,7 @@ class OneToOneCallActivity : AppCompatActivity() {
             }
         }
 
-        override fun onSpeakerChanged(participantId: String) {
+        override fun onSpeakerChanged(participantId: String?) {
 //            if (!HelperClass().isNullOrEmpty(participantId)) {
 //                if ((participantId == meeting!!.localParticipant.id)) {
 //                    img_localActiveSpeaker!!.visibility = View.VISIBLE
@@ -1218,6 +1235,7 @@ class OneToOneCallActivity : AppCompatActivity() {
     private fun onTrackChange() {
         if (screenshareTrack != null) {
             if (meeting!!.participants.size == 0) {
+                localCard!!.visibility = View.VISIBLE
                 showParticipantCard()
                 if (localTrack != null) {
                     localVideoView!!.addTrack(localTrack)
@@ -1229,6 +1247,7 @@ class OneToOneCallActivity : AppCompatActivity() {
                     localVideoView!!.visibility = View.GONE
                 }
                 if (participantTrack != null) {
+                    localCard!!.visibility = View.VISIBLE
                     participantVideoView!!.removeTrack()
                     localVideoView!!.addTrack(participantTrack)
                     if (participantName != null) txtLocalParticipantName!!.text =
@@ -1240,16 +1259,19 @@ class OneToOneCallActivity : AppCompatActivity() {
                 participantCard!!.visibility = View.GONE
                 findViewById<View>(R.id.localScreenShareView).visibility = View.VISIBLE
             } else {
+                participantCard!!.visibility = View.VISIBLE
                 participantVideoView!!.addTrack(screenshareTrack)
                 participantVideoView!!.visibility = View.VISIBLE
             }
         } else {
             if (participantTrack != null) {
+                participantCard!!.visibility = View.VISIBLE
                 participantVideoView!!.visibility = View.VISIBLE
                 participantVideoView!!.addTrack(participantTrack)
 //                (img_participantActiveSpeaker as View).bringToFront()
             }
             if (localTrack != null) {
+                localCard!!.visibility = View.VISIBLE
                 localVideoView!!.visibility = View.VISIBLE
                 localVideoView!!.setZOrderMediaOverlay(true)
                 localVideoView!!.addTrack(localTrack)
@@ -1266,22 +1288,27 @@ class OneToOneCallActivity : AppCompatActivity() {
             if (isLocal) {
                 localVideoView!!.removeTrack()
                 localVideoView!!.visibility = View.GONE
+                localCard!!.visibility = View.GONE
             } else {
                 participantVideoView!!.removeTrack()
                 participantVideoView!!.visibility = View.GONE
+                participantCard!!.visibility = View.GONE
             }
         } else {
             if (!isLocal) {
                 localVideoView!!.removeTrack()
                 localVideoView!!.visibility = View.GONE
+                localCard!!.visibility = View.GONE
                 onTrackChange()
             } else {
                 if (meeting!!.participants.size == 0) {
                     localVideoView!!.removeTrack()
                     localVideoView!!.visibility = View.GONE
+                    localCard!!.visibility = View.GONE
                 } else {
                     participantVideoView!!.removeTrack()
                     participantVideoView!!.visibility = View.GONE
+                    participantCard!!.visibility = View.GONE
                     onTrackChange()
                 }
             }
