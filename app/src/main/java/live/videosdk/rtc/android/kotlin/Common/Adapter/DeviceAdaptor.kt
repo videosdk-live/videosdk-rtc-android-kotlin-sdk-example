@@ -48,7 +48,7 @@ class DeviceAdaptor(
             clickListener(item)
         }
 
-        val selectedAudioDevice = VideoSDK.getSelectedAudioDevice().label
+        val selectedAudioDevice = VideoSDK.getSelectedAudioDevice()?.label
         holder.tickIcon.visibility =
             if (holder.label.text == selectedAudioDevice) View.VISIBLE else View.GONE
 

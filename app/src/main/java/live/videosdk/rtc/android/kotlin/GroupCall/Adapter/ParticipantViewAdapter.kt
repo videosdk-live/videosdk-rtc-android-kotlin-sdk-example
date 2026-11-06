@@ -4,16 +4,16 @@ import android.text.TextUtils
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.viewpager2.adapter.FragmentStateAdapter
-import live.videosdk.rtc.android.Meeting
+import live.videosdk.rtc.android.Room
 import live.videosdk.rtc.android.kotlin.GroupCall.Fragment.ParticipantViewFragment
-import live.videosdk.rtc.android.listeners.MeetingEventListener
+import live.videosdk.rtc.android.listeners.RoomEventListener
 
-class ParticipantViewAdapter(fragmentActivity: FragmentActivity, var meeting: Meeting) :
+class ParticipantViewAdapter(fragmentActivity: FragmentActivity, var meeting: Room) :
     FragmentStateAdapter(fragmentActivity) {
     var participantListSize = 4
 
     init {
-        meeting.addEventListener(object : MeetingEventListener() {
+        meeting.addEventListener(object : RoomEventListener() {
             override fun onPresenterChanged(participantId: String?) {
                 super.onPresenterChanged(participantId)
                 participantListSize = if (!TextUtils.isEmpty(participantId)) {

@@ -8,7 +8,7 @@ import android.view.ViewGroup
 import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
-import live.videosdk.rtc.android.Meeting
+import live.videosdk.rtc.android.Room
 import live.videosdk.rtc.android.kotlin.R
 import live.videosdk.rtc.android.lib.PubSubMessage
 import java.text.SimpleDateFormat
@@ -17,11 +17,11 @@ import java.util.*
 class MessageAdapter(
     var context: Context,
     messageList: MutableList<PubSubMessage>,
-    meeting: Meeting
+    meeting: Room
 ) :
     RecyclerView.Adapter<MessageAdapter.ViewHolder>() {
     private var messageList: MutableList<PubSubMessage> = ArrayList()
-    private var meeting: Meeting
+    private var meeting: Room
 
     init {
         this.messageList = messageList
@@ -45,7 +45,7 @@ class MessageAdapter(
         val item = messageList[position]
         holder.message.text = item.message
         val dateFormat = SimpleDateFormat("hh:mm a")
-        val date = Date(item.timestamp)
+        val date = parseTimestamp(item.timestamp)
         holder.messageTime.text = dateFormat.format(date)
         if (item.senderId == meeting.localParticipant.id) {
             holder.messageLayout.gravity = Gravity.RIGHT
@@ -72,5 +72,18 @@ class MessageAdapter(
             message = itemView.findViewById(R.id.message)
             messageTime = itemView.findViewById(R.id.messageTime)
         }
+    }
+
+    private fun parseTimestamp(raw: String?): Date {
+        if (raw.isNullOrEmpty()) return Date()
+        raw.toLongOrNull()?.let { return Date(it) }
+        val trimmed = raw.replace(Regex("\\.\\d+"), "")
+        for (pattern in listOf("yyyy-MM-dd'T'HH:mm:ssX", "yyyy-MM-dd'T'HH:mm:ss")) {
+            try {
+                return SimpleDateFormat(pattern, Locale.US).parse(trimmed) ?: continue
+            } catch (e: Exception) {
+            }
+        }
+        return Date()
     }
 }

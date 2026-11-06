@@ -1,5 +1,7 @@
 package live.videosdk.rtc.android.kotlin.Common.Activity
 
+import live.videosdk.rtc.android.kotlin.Common.sdkScope
+
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
@@ -29,20 +31,16 @@ import live.videosdk.rtc.android.kotlin.Common.Fragment.CreateMeetingFragment
 import live.videosdk.rtc.android.kotlin.Common.Fragment.CreateOrJoinFragment
 import live.videosdk.rtc.android.kotlin.Common.Fragment.JoinMeetingFragment
 import live.videosdk.rtc.android.kotlin.R
-import live.videosdk.rtc.android.lib.PeerConnectionUtils
-import live.videosdk.rtc.android.mediaDevice.AudioDeviceInfo
 import live.videosdk.rtc.android.mediaDevice.FacingMode
-import live.videosdk.rtc.android.mediaDevice.VideoDeviceInfo
+import live.videosdk.rtc.android.mediaDevice.CameraDeviceInfo
 import live.videosdk.rtc.android.permission.Permission
 import live.videosdk.rtc.android.permission.PermissionHandler
 import live.videosdk.rtc.android.permission.Permissions
-import org.webrtc.Camera1Enumerator
-import org.webrtc.PeerConnectionFactory
-import org.webrtc.PeerConnectionFactory.InitializationOptions
-import org.webrtc.SurfaceTextureHelper
-import org.webrtc.VideoCapturer
-import org.webrtc.VideoSource
-import org.webrtc.VideoTrack
+import videosdk.org.webrtc.VideoTrack
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import live.videosdk.rtc.android.CustomCameraTrackConfig
 
 
 class CreateOrJoinActivity : AppCompatActivity() {
@@ -57,14 +55,11 @@ class CreateOrJoinActivity : AppCompatActivity() {
     private var toolbar: Toolbar? = null
     private var actionBar: ActionBar? = null
     private var videoTrack: CustomStreamTrack? = null
-    private var videoCapturer: VideoCapturer? = null
-    private var initializationOptions: InitializationOptions? = null
-    private var peerConnectionFactory: PeerConnectionFactory? = null
+    private val uiScope = CoroutineScope(Dispatchers.Main)
     private lateinit var preCallListAdaptor: DeviceAdaptor
     private lateinit var recyclerView: RecyclerView
 
 
-    private var videoSource: VideoSource? = null
     var permissionsGranted = false
     lateinit var optionsMenu: Menu
     private val permissionHandler: com.nabinbhandari.android.permissions.PermissionHandler = object : com.nabinbhandari.android.permissions.PermissionHandler() {
@@ -161,7 +156,7 @@ class CreateOrJoinActivity : AppCompatActivity() {
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.top_app_bar,menu)
         optionsMenu = menu
-        setAudioDeviceChangeListener()
+        optionsMenu.findItem(R.id.Audio).isVisible = false
 
         return super.onCreateOptionsMenu(menu)
     }
@@ -182,50 +177,14 @@ class CreateOrJoinActivity : AppCompatActivity() {
             R.id.Camera -> {
                 changeCamera()
             }
-            R.id.Audio -> {
-                getAudioDevices()
-            }
             else -> super.onOptionsItemSelected(item)
         }
         return super.onOptionsItemSelected(item)
     }
 
-    private var previousAvailableDevices: MutableList<String> = mutableListOf()
-    private fun setAudioDeviceChangeListener(){
-        VideoSDK.setAudioDeviceChangeListener { selectedAudioDevice, availableAudioDevices ->
-            Log.d(TAG, "setAudioDeviceChangeListener: " + selectedAudioDevice.label)
-
-            val currentAvailableDevices = availableAudioDevices.map { it.label }.toMutableList()
-            Log.d(TAG, "Current available : $currentAvailableDevices")
-
-            val addedDevices = currentAvailableDevices.filter { it !in previousAvailableDevices }
-            Log.d(TAG, "Added audio devices: $addedDevices")
-
-            val removedDevices = previousAvailableDevices.filter { it !in currentAvailableDevices }
-            Log.d(TAG, "Removed audio devices: $removedDevices")
-            
-            previousAvailableDevices = currentAvailableDevices
-
-            if(addedDevices.isNotEmpty() && addedDevices != previousAvailableDevices) {
-                Toast.makeText(this, "$addedDevices Connected", Toast.LENGTH_SHORT).show()
-            }
-            if(removedDevices.isNotEmpty()){
-                Toast.makeText(this,"$removedDevices Removed", Toast.LENGTH_SHORT).show()
-            }
-            when (selectedAudioDevice.label) {
-                "BLUETOOTH" -> optionsMenu.findItem(R.id.Audio).setIcon(R.drawable.baseline_bluetooth_connected_24)
-                "WIRED_HEADSET" -> optionsMenu.findItem(R.id.Audio).setIcon(R.drawable.baseline_headphones_24)
-                "SPEAKER_PHONE" -> optionsMenu.findItem(R.id.Audio).setIcon(R.drawable.baseline_volume_up_24)
-                "EARPIECE" -> optionsMenu.findItem(R.id.Audio).setIcon(R.drawable.baseline_call_24)
-            }
-        }
-
-    }
-
-
     private fun changeCamera() {
         // Code to change Camera
-        val videoDevices: Set<VideoDeviceInfo> = VideoSDK.getVideoDevices()
+        val videoDevices: List<CameraDeviceInfo> = VideoSDK.getCameras()
         val currentDevice = getSelectedOrDefaultVideoDevice()
         if (currentDevice == null) {
             Toast.makeText(this, "No camera device available", Toast.LENGTH_SHORT).show()
@@ -235,7 +194,7 @@ class CreateOrJoinActivity : AppCompatActivity() {
         val currentFacingMode = currentDevice.facingMode
 
         var facingMode = FacingMode.front
-        var videoDevice: VideoDeviceInfo? = null
+        var videoDevice: CameraDeviceInfo? = null
 
         if(currentFacingMode == FacingMode.front)
         {
@@ -247,7 +206,7 @@ class CreateOrJoinActivity : AppCompatActivity() {
 
         for (devices in videoDevices)
         {
-            if(devices.facingMode.equals(facingMode))
+            if(devices.facingMode == facingMode)
             {
                 videoDevice=devices;
             }
@@ -262,33 +221,6 @@ class CreateOrJoinActivity : AppCompatActivity() {
             updateCameraView(videoDevice)
         }
         Toast.makeText(this,"Camera switched",Toast.LENGTH_SHORT).show()
-    }
-
-    private fun getAudioDevices() {
-        val bottomSheetDialog = BottomSheetDialog(this)
-        val bottomSheetView = layoutInflater.inflate(R.layout.bottom_sheet, null)
-        bottomSheetDialog.setContentView(bottomSheetView)
-        recyclerView = bottomSheetView.findViewById(R.id.rvItems)
-        recyclerView.layoutManager = LinearLayoutManager(this)
-        val audioDevice : Set<AudioDeviceInfo> = VideoSDK.getAudioDevices()
-        val labels = mutableListOf<String>()
-
-        for (device in audioDevice) {
-            val label = device.label
-            labels.add(label)
-        }
-        preCallListAdaptor = DeviceAdaptor(labels) { itemDto: String->
-            for (device in audioDevice) {
-                if (device.label == itemDto) {
-                    Log.d(TAG, "changeAudio: selected called...")
-                    VideoSDK.setSelectedAudioDevice(device)
-                }
-            }
-            bottomSheetDialog.cancel()
-            Toast.makeText(this, "Selected  $itemDto",Toast.LENGTH_SHORT).show()
-        }
-        recyclerView.adapter = preCallListAdaptor
-        bottomSheetDialog.show()
     }
 
     fun createMeetingFragment() {
@@ -319,11 +251,14 @@ class CreateOrJoinActivity : AppCompatActivity() {
         val permissionListSDK: MutableList<Permission> = ArrayList()
         permissionListSDK.add(Permission.audio)
         permissionListSDK.add(Permission.video)
-        val optionsSDK = Permissions.Options().setRationaleDialogTitle("Info").setSettingsDialogTitle("Warning")
+        val optionsSDK = Permissions.Options().apply {
+            rationaleDialogTitle = "Info"
+            settingsDialogTitle = "Warning"
+        }
             VideoSDK.checkPermissions(this,
                 permissionListSDK,
-                optionsSDK,
-                permissionHandlerSDK
+                options = optionsSDK,
+                permissionHandler = permissionHandlerSDK
             )
     }
 
@@ -367,7 +302,7 @@ class CreateOrJoinActivity : AppCompatActivity() {
     }
 
 
-    private fun updateCameraView(videoDevice: VideoDeviceInfo?) {
+    private fun updateCameraView(videoDevice: CameraDeviceInfo?) {
         if (isWebcamEnabled) {
             cameraOffText?.visibility= View.GONE
             joinView!!.visibility = View.VISIBLE
@@ -382,15 +317,15 @@ class CreateOrJoinActivity : AppCompatActivity() {
 
             videoTrack?.track?.dispose()
             joinView!!.removeTrack()
-            videoTrack = VideoSDK.createCameraVideoTrack(
-                "h720p_w960p",
-                "front",
-                CustomStreamTrack.VideoMode.TEXT,
-                true,
-                this,selectedVideoDevice
-            )
-            // display in localView
-            joinView!!.addTrack(videoTrack!!.track as VideoTrack?)
+            sdkScope.launch {
+                videoTrack = VideoSDK.createCameraVideoTrack(
+                    encoderConfig = CustomCameraTrackConfig.H720P_W960P,
+                    facingMode = selectedVideoDevice.facingMode,
+                    multiStream = true,
+                    cameraId = selectedVideoDevice.deviceId
+                )
+                joinView!!.addTrack(videoTrack!!.track as VideoTrack?)
+            }
         } else {
             if(videoTrack?.track?.state()?.equals("LIVE") == true){
                 videoTrack?.track?.dispose()
@@ -404,10 +339,10 @@ class CreateOrJoinActivity : AppCompatActivity() {
         }
     }
 
-    private fun getSelectedOrDefaultVideoDevice(): VideoDeviceInfo? {
+    private fun getSelectedOrDefaultVideoDevice(): CameraDeviceInfo? {
         VideoSDK.getSelectedVideoDevice()?.let { return it }
 
-        val videoDevices = VideoSDK.getVideoDevices()
+        val videoDevices = VideoSDK.getCameras()
         val videoDevice = videoDevices.firstOrNull { it.facingMode == FacingMode.front }
             ?: videoDevices.firstOrNull()
 
@@ -417,32 +352,6 @@ class CreateOrJoinActivity : AppCompatActivity() {
         }
 
         return videoDevice
-    }
-
-    private fun createCameraCapturer(): VideoCapturer? {
-        val enumerator = Camera1Enumerator(false)
-        val deviceNames = enumerator.deviceNames
-
-        // First, try to find front facing camera
-        for (deviceName in deviceNames) {
-            if (enumerator.isFrontFacing(deviceName)) {
-                val videoCapturer: VideoCapturer? = enumerator.createCapturer(deviceName, null)
-                if (videoCapturer != null) {
-                    return videoCapturer
-                }
-            }
-        }
-
-        // Front facing camera not found, try something else
-        for (deviceName in deviceNames) {
-            if (!enumerator.isFrontFacing(deviceName)) {
-                val videoCapturer: VideoCapturer? = enumerator.createCapturer(deviceName, null)
-                if (videoCapturer != null) {
-                    return videoCapturer
-                }
-            }
-        }
-        return null
     }
 
     override fun onDestroy() {

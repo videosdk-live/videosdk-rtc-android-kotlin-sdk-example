@@ -1,13 +1,13 @@
 package live.videosdk.rtc.android.kotlin.GroupCall.Utils
 
 import android.text.TextUtils
-import live.videosdk.rtc.android.Meeting
+import live.videosdk.rtc.android.Room
 import live.videosdk.rtc.android.Participant
 import live.videosdk.rtc.android.kotlin.Common.Utils.HelperClass
 import live.videosdk.rtc.android.kotlin.GroupCall.Listener.ParticipantChangeListener
-import live.videosdk.rtc.android.listeners.MeetingEventListener
+import live.videosdk.rtc.android.listeners.RoomEventListener
 
-class ParticipantState internal constructor(var meeting: Meeting) {
+class ParticipantState internal constructor(var meeting: Room) {
     var perPageParticipantSize = 4
     var participantChangeListenerList: MutableList<ParticipantChangeListener> =
         ArrayList<ParticipantChangeListener>()
@@ -16,9 +16,9 @@ class ParticipantState internal constructor(var meeting: Meeting) {
     private var participantsArr: List<MutableList<Participant>>? = null
 
     init {
-        meeting.addEventListener(object : MeetingEventListener() {
-            override fun onMeetingJoined() {
-                super.onMeetingJoined()
+        meeting.addEventListener(object : RoomEventListener() {
+            override fun onRoomJoined(switchRoomId: String?) {
+                super.onRoomJoined(switchRoomId)
                 for (i in participantChangeListenerList.indices) {
                     participantChangeListenerList[i].onChangeParticipant(participantList)
                 }
@@ -30,7 +30,7 @@ class ParticipantState internal constructor(var meeting: Meeting) {
                 }
             }
 
-            override fun onParticipantLeft(participant: Participant) {
+            override fun onParticipantLeft(participant: Participant, reason: live.videosdk.rtc.android.lib.LeaveReason) {
                 for (i in participantChangeListenerList.indices) {
                     participantChangeListenerList[i].onChangeParticipant(participantList)
                 }
@@ -165,7 +165,7 @@ class ParticipantState internal constructor(var meeting: Meeting) {
         private var participantState: ParticipantState? = null
 
         // static method to create instance of Singleton class
-        fun getInstance(meeting: Meeting): ParticipantState? {
+        fun getInstance(meeting: Room): ParticipantState? {
             if (participantState == null) participantState = ParticipantState(meeting)
             return participantState
         }

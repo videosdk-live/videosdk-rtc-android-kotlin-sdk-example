@@ -1,5 +1,14 @@
 package live.videosdk.rtc.android.kotlin.GroupCall.Fragment
 
+import live.videosdk.rtc.android.kotlin.Common.sdkScope
+
+import kotlinx.coroutines.launch
+
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+
+import live.videosdk.rtc.android.MediaType
+
 import android.annotation.SuppressLint
 import android.os.Bundle
 import android.util.Log
@@ -15,10 +24,11 @@ import androidx.fragment.app.Fragment
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
-import live.videosdk.rtc.android.Meeting
+import live.videosdk.rtc.android.Room
 import live.videosdk.rtc.android.Participant
-import live.videosdk.rtc.android.Stream
+import live.videosdk.rtc.android.RTCStream
 import live.videosdk.rtc.android.VideoView
+import live.videosdk.rtc.android.VideoQuality
 import live.videosdk.rtc.android.kotlin.Common.Listener.ParticipantStreamChangeListener
 import live.videosdk.rtc.android.kotlin.Common.Utils.HelperClass
 import live.videosdk.rtc.android.kotlin.GroupCall.Activity.GroupCallActivity
@@ -26,11 +36,11 @@ import live.videosdk.rtc.android.kotlin.GroupCall.Listener.ParticipantChangeList
 import live.videosdk.rtc.android.kotlin.GroupCall.Utils.ParticipantState
 import live.videosdk.rtc.android.kotlin.R
 import live.videosdk.rtc.android.listeners.ParticipantEventListener
-import org.webrtc.VideoTrack
+import videosdk.org.webrtc.VideoTrack
 import java.util.concurrent.ConcurrentHashMap
 
 
-class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragment() {
+class ParticipantViewFragment(var meeting: Room?, var position: Int) : Fragment() {
     var participantGridLayout: GridLayout? = null
     var participantChangeListener: ParticipantChangeListener? = null
     var participantState: ParticipantState? = null
@@ -119,7 +129,7 @@ class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragme
                 val participant = currentParticipants[i]
                 if (!participant.isLocal) {
                     for ((_, stream) in participant.streams) {
-                        if (stream.kind.equals("video", ignoreCase = true)) stream.resume()
+                        if (stream.kind == MediaType.VIDEO) sdkScope.launch { runCatching { stream.resume() } }
                     }
                 }
             }
@@ -140,8 +150,8 @@ class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragme
                 val participant = otherParticipants[i]
                 if (!participant.isLocal) {
                     for ((_, stream) in participant.streams) {
-                        if (stream.kind.equals("video", ignoreCase = true)) {
-                            stream.pause()
+                        if (stream.kind == MediaType.VIDEO) {
+                            sdkScope.launch { runCatching { stream.pause() } }
                         }
                     }
                 }
@@ -222,36 +232,36 @@ class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragme
                 }
                 txtParticipantName.text = participant.displayName.substring(0, 1)
                 for ((_, stream) in participant.streams) {
-                    if (stream.kind.equals("video", ignoreCase = true)) {
+                    if (stream.kind == MediaType.VIDEO) {
                         participantVideoView.visibility = View.VISIBLE
                         val videoTrack = stream.track as VideoTrack
                         participantVideoView.addTrack(videoTrack)
                         participantStreamChangeListener.onStreamChanged()
                         break
-                    } else if (stream.kind.equals("audio", ignoreCase = true)) {
+                    } else if (stream.kind == MediaType.AUDIO) {
                         participantStreamChangeListener.onStreamChanged()
                         ivMicStatus.setImageResource(R.drawable.ic_audio_on)
                     }
                 }
                 participant.addEventListener(object : ParticipantEventListener() {
-                    override fun onStreamEnabled(stream: Stream) {
-                        if (stream.kind.equals("video", ignoreCase = true)) {
+                    override fun onStreamEnabled(stream: RTCStream) {
+                        if (stream.kind == MediaType.VIDEO) {
                             participantVideoView.visibility = View.VISIBLE
                             val videoTrack = stream.track as VideoTrack
                             participantVideoView.addTrack(videoTrack)
                             participantStreamChangeListener.onStreamChanged()
-                        } else if (stream.kind.equals("audio", ignoreCase = true)) {
+                        } else if (stream.kind == MediaType.AUDIO) {
                             participantStreamChangeListener.onStreamChanged()
                             ivMicStatus.setImageResource(R.drawable.ic_audio_on)
                         }
                     }
 
-                    override fun onStreamDisabled(stream: Stream) {
-                        if (stream.kind.equals("video", ignoreCase = true)) {
+                    override fun onStreamDisabled(stream: RTCStream) {
+                        if (stream.kind == MediaType.VIDEO) {
                             val track = stream.track as VideoTrack
                             if (track != null) participantVideoView.removeTrack()
                             participantVideoView.visibility = View.GONE
-                        } else if (stream.kind.equals("audio", ignoreCase = true)) {
+                        } else if (stream.kind == MediaType.AUDIO) {
                             ivMicStatus.setImageResource(R.drawable.ic_audio_off)
                         }
                     }
@@ -353,11 +363,11 @@ class ParticipantViewFragment(var meeting: Meeting?, var position: Int) : Fragme
             return result
         }
 
-    private fun setQuality(quality: String) {
+    private fun setQuality(quality: VideoQuality) {
         val participants: Iterator<Participant> = meeting!!.participants.values.iterator()
         for (i in 0 until meeting!!.participants.size) {
             val participant = participants.next()
-            participant.quality = quality
+            sdkScope.launch { participant.setQuality(quality) }
         }
     }
 }

@@ -109,13 +109,13 @@ class HelperClass {
         timer.schedule(object : TimerTask() {
             override fun run() {
                 var audio_stats: JSONObject? = null
-                val video_stats: JSONObject
+                val video_stats: JSONObject?
 
                 if (isScreenShare) {
-                    video_stats = participant.shareStats
+                    video_stats = participant.getShareStats()
                 } else {
-                    audio_stats = participant.audioStats
-                    video_stats = participant.videoStats.get(0) as JSONObject
+                    audio_stats = participant.getAudioStats()
+                    video_stats = participant.getVideoStats()?.optJSONObject(0)
                 }
 
                 var score = 0

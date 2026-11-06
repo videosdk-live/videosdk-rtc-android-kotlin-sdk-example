@@ -1,5 +1,14 @@
 package live.videosdk.rtc.android.kotlin.Common.Adapter
 
+import live.videosdk.rtc.android.kotlin.Common.sdkScope
+
+import kotlinx.coroutines.launch
+
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+
+import live.videosdk.rtc.android.MediaType
+
 import android.content.Context
 import android.os.Build
 import android.view.*
@@ -8,17 +17,17 @@ import android.widget.ImageView
 import android.widget.PopupMenu
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
-import live.videosdk.rtc.android.Meeting
+import live.videosdk.rtc.android.Room
 import live.videosdk.rtc.android.Participant
-import live.videosdk.rtc.android.Stream
+import live.videosdk.rtc.android.RTCStream
 import live.videosdk.rtc.android.kotlin.Common.RobotoFont
 import live.videosdk.rtc.android.kotlin.R
-import live.videosdk.rtc.android.listeners.MeetingEventListener
+import live.videosdk.rtc.android.listeners.RoomEventListener
 import live.videosdk.rtc.android.listeners.ParticipantEventListener
 
 class ParticipantListAdapter(
     items: ArrayList<Participant>?,
-    meeting: Meeting,
+    meeting: Room,
     private val context: Context
 ) :
     RecyclerView.Adapter<ParticipantListAdapter.ViewHolder>() {
@@ -27,15 +36,15 @@ class ParticipantListAdapter(
     init {
         participants.add(meeting.localParticipant)
         participants.addAll(items!!)
-        meeting.addEventListener(object : MeetingEventListener() {
+        meeting.addEventListener(object : RoomEventListener() {
             override fun onParticipantJoined(participant: Participant) {
                 super.onParticipantJoined(participant)
                 participants.add(participant)
                 notifyItemInserted(participants.size - 1)
             }
 
-            override fun onParticipantLeft(participant: Participant) {
-                super.onParticipantLeft(participant)
+            override fun onParticipantLeft(participant: Participant, reason: live.videosdk.rtc.android.lib.LeaveReason) {
+                super.onParticipantLeft(participant, reason)
                 var pos = -1
                 for (i in participants.indices) {
                     if (participants[i].id == participant.id) {
@@ -76,20 +85,20 @@ class ParticipantListAdapter(
         }
 
         participant.addEventListener(object : ParticipantEventListener() {
-            override fun onStreamEnabled(stream: Stream) {
-                if (stream.kind.equals("video", ignoreCase = true)) {
+            override fun onStreamEnabled(stream: RTCStream) {
+                if (stream.kind == MediaType.VIDEO) {
                     holder.camStatus.setImageResource(R.drawable.ic_webcam_on_style)
                 }
-                if (stream.kind.equals("audio", ignoreCase = true)) {
+                if (stream.kind == MediaType.AUDIO) {
                     holder.micStatus.setImageResource(R.drawable.ic_mic_on_style)
                 }
             }
 
-            override fun onStreamDisabled(stream: Stream) {
-                if (stream.kind.equals("video", ignoreCase = true)) {
+            override fun onStreamDisabled(stream: RTCStream) {
+                if (stream.kind == MediaType.VIDEO) {
                     holder.camStatus.setImageResource(R.drawable.ic_webcam_off_style)
                 }
-                if (stream.kind.equals("audio", ignoreCase = true)) {
+                if (stream.kind == MediaType.AUDIO) {
                     holder.micStatus.setImageResource(R.drawable.ic_mic_off_style)
                 }
             }
@@ -111,7 +120,7 @@ class ParticipantListAdapter(
     private fun getVideoStreamStatus(participant: Participant): Boolean {
         val webCamOn = booleanArrayOf(false)
         for ((_, stream) in participant.streams) {
-            if (stream.kind.equals("video", ignoreCase = true)) {
+            if (stream.kind == MediaType.VIDEO) {
                 webCamOn[0] = true
                 break
             }
@@ -122,7 +131,7 @@ class ParticipantListAdapter(
     private fun getAudioStreamStatus(participant: Participant): Boolean {
         val micOn = booleanArrayOf(false)
         for ((_, stream) in participant.streams) {
-            if (stream.kind.equals("audio", ignoreCase = true)) {
+            if (stream.kind == MediaType.AUDIO) {
                 micOn[0] = true
                 break
             }
@@ -145,19 +154,19 @@ class ParticipantListAdapter(
         }
         popup.setOnMenuItemClickListener { item: MenuItem ->
             if (item.toString() == "Remove Participant") {
-                participant.remove()
+                sdkScope.launch { participant.remove() }
                 return@setOnMenuItemClickListener true
             } else if (item.toString() == "Disable Webcam") {
-                participant.disableWebcam()
+                sdkScope.launch { participant.disableCam() }
                 return@setOnMenuItemClickListener true
             } else if (item.toString() == "Enable Webcam") {
-                participant.enableWebcam()
+                sdkScope.launch { participant.enableCam() }
                 return@setOnMenuItemClickListener true
             } else if (item.toString() == "Mute Mic") {
-                participant.disableMic()
+                sdkScope.launch { participant.disableMic() }
                 return@setOnMenuItemClickListener true
             } else if (item.toString() == "UnMute Mic") {
-                participant.enableMic()
+                sdkScope.launch { participant.enableMic() }
                 return@setOnMenuItemClickListener true
             }
             false

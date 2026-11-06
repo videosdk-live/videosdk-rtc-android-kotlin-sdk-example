@@ -3,9 +3,10 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 apply plugin: 'kotlin-android'
-apply plugin: 'com.google.gms.google-services'
-// Apply the Crashlytics Gradle plugin
-apply plugin: 'com.google.firebase.crashlytics'
+if (file('google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
+    apply plugin: 'com.google.firebase.crashlytics'
+}
 
 def localProperties = new Properties()
 localProperties.load(new FileInputStream(rootProject.file("local.properties")))
@@ -16,7 +17,7 @@ android {
 
     defaultConfig {
         applicationId "live.videosdk.rtc.android.kotlin"
-        minSdk 21
+        minSdk 24
         targetSdk 36
         versionCode 1
         versionName "1.0"
@@ -53,7 +54,7 @@ android {
 
 dependencies {
 
-    implementation 'live.videosdk:rtc-android-sdk:2.0.1'
+    implementation 'live.videosdk:rtc-android-sdk:3.0.4'
 
     implementation 'com.nabinbhandari.android:permissions:3.8'
     implementation 'com.amitshekhar.android:android-networking:1.0.2'

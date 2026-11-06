@@ -1,5 +1,14 @@
 package live.videosdk.rtc.android.kotlin.OneToOneCall
 
+import live.videosdk.rtc.android.kotlin.Common.sdkScope
+
+import kotlinx.coroutines.launch
+
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+
+import live.videosdk.rtc.android.MediaType
+
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -52,8 +61,7 @@ import live.videosdk.rtc.android.kotlin.Common.Utils.HelperClass
 import live.videosdk.rtc.android.kotlin.Common.Utils.NetworkUtils
 import live.videosdk.rtc.android.kotlin.R
 import live.videosdk.rtc.android.lib.AppRTCAudioManager
-import live.videosdk.rtc.android.lib.JsonUtils
-import live.videosdk.rtc.android.lib.MeetingState
+import live.videosdk.rtc.android.lib.RoomState
 import live.videosdk.rtc.android.lib.PubSubMessage
 import live.videosdk.rtc.android.listeners.*
 import live.videosdk.rtc.android.model.PubSubHistoryInfo
@@ -63,14 +71,14 @@ import live.videosdk.rtc.android.permission.Permission
 import live.videosdk.rtc.android.permission.PermissionHandler
 import live.videosdk.rtc.android.permission.Permissions
 import org.json.JSONObject
-import org.webrtc.VideoTrack
+import videosdk.org.webrtc.VideoTrack
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.math.roundToInt
 
 
 class OneToOneCallActivity : AppCompatActivity() {
-    private var meeting: Meeting? = null
+    private var meeting: Room? = null
     private var localVideoView: VideoView? = null
     private var participantVideoView: VideoView? = null
     private var btnWebcam: FloatingActionButton? = null
@@ -190,29 +198,9 @@ class OneToOneCallActivity : AppCompatActivity() {
         val textMeetingId = findViewById<TextView>(R.id.txtMeetingId)
         textMeetingId.text = meetingId
 
-        // pass the token generated from api server
-        VideoSDK.config(token)
-
-        val customTracks: MutableMap<String, CustomStreamTrack> = HashMap()
-
-        val selectedVideoDevice = VideoSDK.getSelectedVideoDevice()
-        val videoCustomTrack = VideoSDK.createCameraVideoTrack(
-            "h720p_w960p",
-            "front",
-            CustomStreamTrack.VideoMode.TEXT,
-            true,
-            this, selectedVideoDevice
-        )
-
-        customTracks["video"] = videoCustomTrack
-
-        val audioCustomTrack = VideoSDK.createAudioTrack("high_quality", this)
-        customTracks["mic"] = audioCustomTrack
-
-        // create a new meeting instance
-        meeting = VideoSDK.initMeeting(
-            this@OneToOneCallActivity, meetingId, localParticipantName,
-            false, false, null, null, true,customTracks,null
+        meeting = VideoSDK.createRoom(
+            meetingId!!, token!!, localParticipantName,
+            false, false
         )
         meeting!!.addEventListener(meetingEventListener)
 
@@ -234,7 +222,7 @@ class OneToOneCallActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.btnStopScreenShare).setOnClickListener({
             if (localScreenShare) {
-                meeting!!.disableScreenShare()
+                sdkScope.launch { meeting!!.disableScreenShare() }
             }
         })
 
@@ -434,8 +422,8 @@ class OneToOneCallActivity : AppCompatActivity() {
         }
     }
 
-    private val meetingEventListener: MeetingEventListener = object : MeetingEventListener() {
-        override fun onMeetingJoined() {
+    private val meetingEventListener: RoomEventListener = object : RoomEventListener() {
+        override fun onRoomJoined(switchRoomId: String?) {
             if (meeting != null) {
                 //hide progress when meetingJoined
                 HelperClass.hideProgress(window.decorView.rootView)
@@ -452,7 +440,7 @@ class OneToOneCallActivity : AppCompatActivity() {
                     // Local participant listeners
                     setLocalListeners()
                     NetworkUtils(this@OneToOneCallActivity).fetchMeetingTime(
-                        meeting!!.meetingId,
+                        meeting!!.id,
                         token,
                         object : ResponseListener<Int> {
                             override fun onResponse(meetingTime: Int?) {
@@ -483,27 +471,23 @@ class OneToOneCallActivity : AppCompatActivity() {
                         }
 
                         override fun onOldMessagesReceived(
-                            messages: List<PubSubMessage?>?,
-                            info: PubSubHistoryInfo?
+                            messages: List<PubSubMessage>,
+                            info: PubSubHistoryInfo
                         ) {
                             // handle old messages with info
                         }
 
-                        override fun onBatchReceived(messages: List<PubSubMessage?>?) {
+                        override fun onBatchReceived(messages: List<PubSubMessage>) {
                             // handle new messages in batches
                         }
 
-                        override fun onMessageDrop(info: PubSubMessageDropInfo?) {
+                        override fun onMessageDrop(info: PubSubMessageDropInfo) {
                             // handle messages drop action
-                        }
-
-                        override fun onOldMessagesReceived(messages: List<PubSubMessage>?) {
-                            // handle old messages
                         }
                     }
 
                     // notify user of any new messages
-                    meeting!!.pubSub.subscribe("CHAT", chatListener)
+                    sdkScope.launch { meeting!!.pubSub.subscribe("CHAT", chatListener!!) }
 
                     //terminate meeting in 10 minutes
                     Handler().postDelayed({
@@ -526,7 +510,7 @@ class OneToOneCallActivity : AppCompatActivity() {
                             positiveButton.setOnClickListener {
                                 if (!isDestroyed) {
                                     unSubscribeTopics()
-                                    meeting!!.leave()
+                                    sdkScope.launch { meeting!!.leave() }
                                 }
                                 alertDialog.dismiss()
                             }
@@ -543,12 +527,12 @@ class OneToOneCallActivity : AppCompatActivity() {
                         window.decorView.rootView, progressLayout
                     )
                     progressLayout.findViewById<View>(R.id.leaveBtn)
-                        .setOnClickListener { meeting!!.leave() }
+                        .setOnClickListener { sdkScope.launch { meeting!!.leave() } }
                 }
             }
         }
 
-        override fun onMeetingLeft() {
+        override fun onRoomLeft(reason: live.videosdk.rtc.android.lib.LeaveReason) {
             if (!isDestroyed) {
                 val intents = Intent(this@OneToOneCallActivity, CreateOrJoinActivity::class.java)
                 intents.addFlags(
@@ -581,7 +565,7 @@ class OneToOneCallActivity : AppCompatActivity() {
             participant.addEventListener(participantEventListener)
         }
 
-        override fun onParticipantLeft(participant: Participant) {
+        override fun onParticipantLeft(participant: Participant, reason: live.videosdk.rtc.android.lib.LeaveReason) {
             if (meeting!!.participants.size < 1) {
                 hideParticipantCard()
                 if (screenshareTrack != null) {
@@ -604,7 +588,7 @@ class OneToOneCallActivity : AppCompatActivity() {
                     Toast.LENGTH_SHORT
                 ).show()
             }
-            participant.removeAllListeners()
+            participant.removeAllEventListeners()
         }
 
         override fun onPresenterChanged(participantId: String?) {
@@ -630,20 +614,18 @@ class OneToOneCallActivity : AppCompatActivity() {
             ).show()
         }
 
-        override fun onExternalCallStarted() {
+        override fun onExternalCallAnswered(callType: live.videosdk.rtc.android.lib.CallType) {
             Toast.makeText(this@OneToOneCallActivity, "onExternalCallStarted", Toast.LENGTH_SHORT)
                 .show()
         }
 
-        override fun onError(error: JSONObject) {
+        override fun onError(error: live.videosdk.rtc.android.lib.VideoSDKError) {
             try {
-                val errorCodes = VideoSDK.getErrorCodes()
-                val code = error.getInt("code")
-                if (code == errorCodes.getInt("PREV_RECORDING_PROCESSING")) {
+                if (error == live.videosdk.rtc.android.lib.VideoSDKError.PREV_RECORDING_PROCESSING) {
                     recordingStatusSnackbar!!.dismiss()
                 }
                 val snackbar = Snackbar.make(
-                    findViewById(R.id.mainLayout), error.getString("message"),
+                    findViewById(R.id.mainLayout), error.message,
                     Snackbar.LENGTH_LONG
                 )
                 HelperClass.setSnackBarStyle(snackbar.view, 0)
@@ -669,8 +651,8 @@ class OneToOneCallActivity : AppCompatActivity() {
 //            }
         }
 
-        override fun onMeetingStateChanged(state: MeetingState?) {
-            if (state === MeetingState.DISCONNECTED) {
+        override fun onRoomStateChanged(roomState: RoomState) {
+            if (roomState == RoomState.DISCONNECTED) {
                 val parentLayout = findViewById<View>(android.R.id.content)
                 val builderTextLeft = SpannableStringBuilder()
                 builderTextLeft.append("   Call disconnected. Reconnecting...")
@@ -769,7 +751,7 @@ class OneToOneCallActivity : AppCompatActivity() {
             localScreenShare = false
             return
         }
-        meeting!!.enableScreenShare(data,true)
+        sdkScope.launch { meeting!!.enableScreenShare(data!!, true) }
     }
 
     private fun updatePresenter(participantId: String?) {
@@ -784,9 +766,9 @@ class OneToOneCallActivity : AppCompatActivity() {
         val participant = meeting!!.participants[participantId] ?: return
 
         // find share stream in participant
-        var shareStream: Stream? = null
-        for (stream: Stream in participant.streams.values) {
-            if ((stream.kind == "share")) {
+        var shareStream: RTCStream? = null
+        for (stream: RTCStream in participant.streams.values) {
+            if ((stream.kind == MediaType.SHARE)) {
                 shareStream = stream
                 break
             }
@@ -813,8 +795,8 @@ class OneToOneCallActivity : AppCompatActivity() {
 
         // listen for share stop event
         participant.addEventListener(object : ParticipantEventListener() {
-            override fun onStreamDisabled(stream: Stream) {
-                if ((stream.kind == "share")) {
+            override fun onStreamDisabled(stream: RTCStream) {
+                if ((stream.kind == MediaType.SHARE)) {
                     val track = stream.track as VideoTrack
                     screenshareTrack = null
                     participantVideoView!!.removeTrack()
@@ -865,7 +847,7 @@ class OneToOneCallActivity : AppCompatActivity() {
     private val permissionHandlerSDK: PermissionHandler = object :
         PermissionHandler() {
         override fun onGranted() {
-            if (meeting != null) meeting!!.join()
+            if (meeting != null) sdkScope.launch { meeting!!.join() }
         }
 
         override fun onBlocked(
@@ -911,12 +893,8 @@ class OneToOneCallActivity : AppCompatActivity() {
         permissionListSDK.add(Permission.audio)
         permissionListSDK.add(Permission.video)
         permissionListSDK.add(Permission.bluetooth)
-        val optionsSDK = Permissions.Options().setRationaleDialogTitle("Info").setSettingsDialogTitle("Warning")
-        VideoSDK.checkPermissions(this,
-            permissionListSDK,
-            optionsSDK,
-            permissionHandlerSDK
-        )
+        val optionsSDK = Permissions.Options().apply { rationaleDialogTitle = "Info"; settingsDialogTitle = "Warning" }
+        VideoSDK.checkPermissions(this, permissionListSDK, options = optionsSDK, permissionHandler = permissionHandlerSDK)
     }
 
     private fun setAudioDeviceListeners() {
@@ -934,26 +912,18 @@ class OneToOneCallActivity : AppCompatActivity() {
 
     private fun toggleMic() {
         if (micEnabled) {
-            meeting!!.muteMic()
+            sdkScope.launch { meeting!!.muteMic() }
         } else {
-            val audioCustomTrack = VideoSDK.createAudioTrack("high_quality", this)
-            meeting!!.unmuteMic(audioCustomTrack)
+            sdkScope.launch { meeting!!.unmuteMic() }
         }
         micEnabled = !micEnabled
     }
 
     private fun toggleWebCam() {
         if (webcamEnabled) {
-            meeting!!.disableWebcam()
+            sdkScope.launch { meeting!!.disableCam() }
         } else {
-            val videoCustomTrack = VideoSDK.createCameraVideoTrack(
-                "h720p_w960p",
-                "front",
-                CustomStreamTrack.VideoMode.DETAIL,
-                true,
-                this,VideoSDK.getSelectedVideoDevice()
-            )
-            meeting!!.enableWebcam(videoCustomTrack)
+            sdkScope.launch { meeting!!.enableCam() }
         }
         webcamEnabled = !webcamEnabled
         toggleWebcamIcon(webcamEnabled)
@@ -970,7 +940,7 @@ class OneToOneCallActivity : AppCompatActivity() {
         // Leave meeting
         btnLeave!!.setOnClickListener { showLeaveOrEndDialog() }
         btnMore!!.setOnClickListener { showMoreOptionsDialog() }
-        btnSwitchCameraMode!!.setOnClickListener { meeting!!.changeWebcam() }
+        btnSwitchCameraMode!!.setOnClickListener { sdkScope.launch { meeting!!.changeCam() } }
 
         // Chat
         btnChat!!.setOnClickListener {
@@ -988,7 +958,7 @@ class OneToOneCallActivity : AppCompatActivity() {
             localScreenShare = !localScreenShare
         } else {
             if (localScreenShare) {
-                meeting!!.disableScreenShare()
+                sdkScope.launch { meeting!!.disableScreenShare() }
             } else {
                 Toast.makeText(this, "You can't share your screen", Toast.LENGTH_SHORT).show()
             }
@@ -1030,11 +1000,11 @@ class OneToOneCallActivity : AppCompatActivity() {
                     when (which) {
                         0 -> {
                             unSubscribeTopics()
-                            meeting!!.leave()
+                            sdkScope.launch { meeting!!.leave() }
                         }
                         1 -> {
                             unSubscribeTopics()
-                            meeting!!.end()
+                            sdkScope.launch { meeting!!.end() }
                         }
                     }
                 }
@@ -1057,19 +1027,11 @@ class OneToOneCallActivity : AppCompatActivity() {
 
 
     private fun showAudioInputDialog() {
-        val mics = meeting!!.mics
-        var audioDeviceListItem: ListItem? = null
+        val mics = VideoSDK.getMics()
+        var audioDeviceListItem: ListItem?
         val audioDeviceList: ArrayList<ListItem?> = ArrayList<ListItem?>()
-        // Prepare list
-        var item: String
-        for (i in mics.indices) {
-            item = mics.toTypedArray()[i].toString()
-            var mic =
-                item.substring(0, 1).uppercase(Locale.getDefault()) + item.substring(1).lowercase(
-                    Locale.getDefault()
-                )
-            mic = mic.replace("_", " ")
-            audioDeviceListItem = ListItem(mic, null, (item == selectedAudioDeviceName))
+        for (mic in mics) {
+            audioDeviceListItem = ListItem(mic.label, null, (mic.label == selectedAudioDeviceName))
             audioDeviceList.add(audioDeviceListItem)
         }
         val arrayAdapter: ArrayAdapter<*> = AudioDeviceListAdapter(
@@ -1080,19 +1042,8 @@ class OneToOneCallActivity : AppCompatActivity() {
         val materialAlertDialogBuilder =
             MaterialAlertDialogBuilder(this@OneToOneCallActivity, R.style.AlertDialogCustom)
                 .setAdapter(arrayAdapter) { _: DialogInterface?, which: Int ->
-                    var audioDevice: AppRTCAudioManager.AudioDevice? = null
-                    when (audioDeviceList[which]!!.itemName) {
-                        "Bluetooth" -> audioDevice = AppRTCAudioManager.AudioDevice.BLUETOOTH
-                        "Wired headset" -> audioDevice =
-                            AppRTCAudioManager.AudioDevice.WIRED_HEADSET
-                        "Speaker phone" -> audioDevice =
-                            AppRTCAudioManager.AudioDevice.SPEAKER_PHONE
-                        "Earpiece" -> audioDevice = AppRTCAudioManager.AudioDevice.EARPIECE
-                    }
-                    meeting!!.changeMic(
-                        audioDevice,
-                        VideoSDK.createAudioTrack("high_quality", this)
-                    )
+                    val micDeviceId = mics[which].deviceId
+                    sdkScope.launch { meeting!!.changeMic(micDeviceId) }
                 }
         val alertDialog = materialAlertDialogBuilder.create()
         val listView = alertDialog.listView
@@ -1187,17 +1138,18 @@ class OneToOneCallActivity : AppCompatActivity() {
     private fun toggleRecording() {
         if (!recording) {
             recordingStatusSnackbar!!.show()
-            val config = JSONObject()
-            val layout = JSONObject()
-            JsonUtils.jsonPut(layout, "type", "SPOTLIGHT")
-            JsonUtils.jsonPut(layout, "priority", "PIN")
-            JsonUtils.jsonPut(layout, "gridSize", 12)
-            JsonUtils.jsonPut(config, "layout", layout)
-            JsonUtils.jsonPut(config, "orientation", "portrait")
-            JsonUtils.jsonPut(config, "theme", "DARK")
-            meeting!!.startRecording(null,null,config,null)
+            val config = live.videosdk.rtc.android.model.RecordingConfig(
+                layout = live.videosdk.rtc.android.model.ConfigLayout(
+                    type = live.videosdk.rtc.android.model.ConfigLayoutGrid.SPOTLIGHT,
+                    priority = live.videosdk.rtc.android.model.ConfigLayoutPriority.PIN,
+                    gridSize = 12
+                ),
+                theme = live.videosdk.rtc.android.model.ConfigTheme.DARK,
+                orientation = live.videosdk.rtc.android.model.ConfigOrientation.PORTRAIT
+            )
+            sdkScope.launch { meeting!!.startRecording(config = config) }
         } else {
-            meeting!!.stopRecording()
+            sdkScope.launch { meeting!!.stopRecording() }
         }
     }
 
@@ -1209,9 +1161,9 @@ class OneToOneCallActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         if (meeting != null) {
-            meeting!!.removeAllListeners()
-            meeting!!.localParticipant.removeAllListeners()
-            meeting!!.leave()
+            meeting!!.removeAllEventListeners()
+            meeting!!.localParticipant.removeAllEventListeners()
+            sdkScope.launch { runCatching { meeting!!.leave() } }
             meeting = null
         }
         if (participantVideoView != null) {
@@ -1228,7 +1180,7 @@ class OneToOneCallActivity : AppCompatActivity() {
 
     private fun unSubscribeTopics() {
         if (meeting != null) {
-            meeting!!.pubSub.unsubscribe("CHAT", chatListener)
+            sdkScope.launch { meeting!!.pubSub.unsubscribe("CHAT", chatListener!!) }
         }
     }
 
@@ -1317,11 +1269,8 @@ class OneToOneCallActivity : AppCompatActivity() {
 
     private fun checkStream(participant: Participant, imageView: ImageView) {
         if (participant.streams.isNotEmpty()) {
-            for (stream: Stream in participant.streams.values) {
-                if (stream.kind.equals("video", ignoreCase = true) || stream.kind.equals(
-                        "audio",
-                        ignoreCase = true
-                    )
+            for (stream: RTCStream in participant.streams.values) {
+                if (stream.kind == MediaType.VIDEO || stream.kind == MediaType.AUDIO
                 ) {
                     imageView.visibility = View.VISIBLE
                     break
@@ -1334,13 +1283,13 @@ class OneToOneCallActivity : AppCompatActivity() {
 
     private val participantEventListener: ParticipantEventListener =
         object : ParticipantEventListener() {
-            override fun onStreamEnabled(stream: Stream) {
-                if (stream.kind.equals("video", ignoreCase = true)) {
+            override fun onStreamEnabled(stream: RTCStream) {
+                if (stream.kind == MediaType.VIDEO) {
                     if (meeting!!.participants.size < 2) {
                         val track = stream.track as VideoTrack
                         participantTrack = track
                         onTrackChange()
-                        setQuality("high")
+                        setQuality(live.videosdk.rtc.android.VideoQuality.HIGH)
                         val participantList = getAllParticipants()
                         val participant = participantList[0]
                         if (screenshareEnabled) {
@@ -1348,9 +1297,9 @@ class OneToOneCallActivity : AppCompatActivity() {
                         } else checkStream(participant, ivParticipantNetwork!!)
                     }
                 }
-                if (stream.kind.equals("audio", ignoreCase = true)) {
+                if (stream.kind == MediaType.AUDIO) {
                     if (meeting!!.participants.size >= 2) {
-                        stream.pause()
+                        sdkScope.launch { runCatching { stream.pause() } }
                     } else {
                         ivParticipantMicStatus!!.setImageResource(R.drawable.ic_audio_on)
                         val participantList = getAllParticipants()
@@ -1362,8 +1311,8 @@ class OneToOneCallActivity : AppCompatActivity() {
                 }
             }
 
-            override fun onStreamDisabled(stream: Stream) {
-                if (stream.kind.equals("video", ignoreCase = true)) {
+            override fun onStreamDisabled(stream: RTCStream) {
+                if (stream.kind == MediaType.VIDEO) {
                     if (meeting!!.participants.size < 2) {
                         val track: VideoTrack = stream.track as VideoTrack
                         participantTrack = null
@@ -1375,9 +1324,9 @@ class OneToOneCallActivity : AppCompatActivity() {
                         } else checkStream(participant, ivParticipantNetwork!!)
                     }
                 }
-                if (stream.kind.equals("audio", ignoreCase = true)) {
+                if (stream.kind == MediaType.AUDIO) {
                     if (meeting!!.participants.size >= 2) {
-                        stream.pause()
+                        sdkScope.launch { runCatching { stream.pause() } }
                     } else {
                         ivParticipantMicStatus!!.setImageResource(R.drawable.ic_audio_off)
                         val participantList = getAllParticipants()
@@ -1390,18 +1339,18 @@ class OneToOneCallActivity : AppCompatActivity() {
             }
         }
 
-    private fun setQuality(quality: String) {
+    private fun setQuality(quality: live.videosdk.rtc.android.VideoQuality) {
         val participants: Iterator<Participant> = meeting!!.participants.values.iterator()
         for (i in 0 until meeting!!.participants.size) {
             val participant = participants.next()
-            participant.quality = quality
+            sdkScope.launch { participant.setQuality(quality) }
         }
     }
 
     private fun setLocalListeners() {
         meeting!!.localParticipant.addEventListener(object : ParticipantEventListener() {
-            override fun onStreamEnabled(stream: Stream) {
-                if (stream.kind.equals("video", ignoreCase = true)) {
+            override fun onStreamEnabled(stream: RTCStream) {
+                if (stream.kind == MediaType.VIDEO) {
                     val track = stream.track as VideoTrack
                     localTrack = track
                     onTrackChange()
@@ -1417,7 +1366,7 @@ class OneToOneCallActivity : AppCompatActivity() {
                         ivLocalNetwork!!
                     )
 
-                } else if (stream.kind.equals("audio", ignoreCase = true)) {
+                } else if (stream.kind == MediaType.AUDIO) {
 //                    ivLocalParticipantMicStatus!!.setImageResource(R.drawable.ic_audio_on);
                     toggleMicIcon(true)
 
@@ -1434,7 +1383,7 @@ class OneToOneCallActivity : AppCompatActivity() {
                         ivLocalNetwork!!
                     )
 
-                } else if (stream.kind.equals("share", ignoreCase = true)) {
+                } else if (stream.kind == MediaType.SHARE) {
                     // display share video
                     val videoTrack = stream.track as VideoTrack
                     screenshareTrack = videoTrack
@@ -1481,8 +1430,8 @@ class OneToOneCallActivity : AppCompatActivity() {
                 }
             }
 
-            override fun onStreamDisabled(stream: Stream) {
-                if (stream.kind.equals("video", ignoreCase = true)) {
+            override fun onStreamDisabled(stream: RTCStream) {
+                if (stream.kind == MediaType.VIDEO) {
                     val track: VideoTrack = stream.track as VideoTrack
                     localTrack = null
                     removeTrack(track, true)
@@ -1499,7 +1448,7 @@ class OneToOneCallActivity : AppCompatActivity() {
                         ivLocalNetwork!!
                     )
 
-                } else if (stream.kind.equals("audio", ignoreCase = true)) {
+                } else if (stream.kind == MediaType.AUDIO) {
 //                    ivLocalParticipantMicStatus!!.setImageResource(R.drawable.ic_audio_off);
                     toggleMicIcon(false)
                     if (screenshareEnabled) {
@@ -1514,7 +1463,7 @@ class OneToOneCallActivity : AppCompatActivity() {
                         ivLocalNetwork!!
                     )
 
-                } else if (stream.kind.equals("share", ignoreCase = true)) {
+                } else if (stream.kind == MediaType.SHARE) {
                     screenshareTrack = null
                     participantVideoView!!.removeTrack()
                     participantVideoView!!.visibility = View.GONE
@@ -1673,7 +1622,7 @@ class OneToOneCallActivity : AppCompatActivity() {
                 messageRcv.scrollToPosition(messageAdapter!!.itemCount - 1)
             }
 
-            override fun onOldMessagesReceived(messages: List<PubSubMessage>?) {
+            override fun onOldMessagesReceived(messages: List<PubSubMessage>, info: live.videosdk.rtc.android.model.PubSubHistoryInfo) {
                 messages?.forEach { message ->
                     messageAdapter!!.addItem(message)
                 }
@@ -1684,7 +1633,7 @@ class OneToOneCallActivity : AppCompatActivity() {
         }
 
         // Subscribe for 'CHAT' topic
-        meeting!!.pubSub.subscribe("CHAT", pubSubMessageListener)
+        sdkScope.launch { meeting!!.pubSub.subscribe("CHAT", pubSubMessageListener!!) }
 
         messageRcv.addOnLayoutChangeListener { _: View?, _: Int, _: Int, _: Int, _: Int, _: Int, _: Int, _: Int, _: Int ->
             messageRcv.scrollToPosition(
@@ -1694,9 +1643,8 @@ class OneToOneCallActivity : AppCompatActivity() {
         v3.findViewById<View>(R.id.btnSend).setOnClickListener {
             val message: String = etmessage!!.text.toString()
             if (message != "") {
-                val publishOptions = PubSubPublishOptions()
-                publishOptions.isPersist = true
-                meeting!!.pubSub.publish("CHAT", message, publishOptions)
+                val publishOptions = PubSubPublishOptions(persist = true)
+                                sdkScope.launch { meeting!!.pubSub.publish("CHAT", message, publishOptions) }
                 etmessage!!.setText("")
             } else {
                 Toast.makeText(
@@ -1709,10 +1657,7 @@ class OneToOneCallActivity : AppCompatActivity() {
         bottomSheetDialog!!.show()
         close.setOnClickListener { bottomSheetDialog!!.dismiss() }
         bottomSheetDialog!!.setOnDismissListener {
-            meeting!!.pubSub.unsubscribe(
-                "CHAT",
-                pubSubMessageListener
-            )
+            sdkScope.launch { meeting!!.pubSub.unsubscribe("CHAT", pubSubMessageListener!!) }
         }
     }
 
